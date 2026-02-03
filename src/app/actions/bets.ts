@@ -10,31 +10,26 @@ export async function createBetAction(formData: FormData) {
   
   const title = formData.get('title') as string
   const description = formData.get('description') as string
-  const category_id = formData.get('category_id') as string // can be empty string if not selected
+  const category_id = formData.get('category_id') as string
   const end_at = formData.get('end_at') as string
   const max_participants = formData.get('max_participants') ? parseInt(formData.get('max_participants') as string) : null
-  const visibility = formData.get('visibility') as string // 'PUBLIC' | 'PRIVATE'
+  const audience = (formData.get('audience') as string) || 'PUBLIC'
+  const group_id = formData.get('group_id') as string
   const invite_code_enabled = formData.get('invite_code_enabled') === 'on'
   const hide_participants = formData.get('hide_participants') === 'on'
 
-  if (!title || !end_at) {
-    throw new Error('Missing required fields')
-  }
-
-  // Handle category explicitly
-  // Pass null to RPC if string is empty
-  const categoryIdParam = category_id && category_id.trim() !== '' ? category_id : null
-
-  const { data, error } = await (supabase.rpc as any)('fn_create_bet', {
+  // Use V2 RPC for audience support
+  const { data, error } = await (supabase.rpc as any)('fn_create_bet_v2', {
     p_title: title,
     p_description: description || null,
-    p_category_id: categoryIdParam, 
+    p_category_id: category_id && category_id !== '' ? category_id : null,
     p_end_at: new Date(end_at).toISOString(),
     p_max_participants: max_participants,
-    p_visibility: visibility,
+    p_audience: audience,
+    p_group_id: group_id && group_id !== '' ? group_id : null,
     p_invite_code_enabled: invite_code_enabled,
     p_hide_participants: hide_participants,
-    p_secret: INVITE_SECRET // Pass Encryption Key
+    p_secret: INVITE_SECRET
   })
 
   if (error) {
@@ -42,7 +37,7 @@ export async function createBetAction(formData: FormData) {
     throw new Error(error.message)
   }
 
-  return data as { id: string, invite_code: string | null }
+  return data as { id: string, invite_code: string | null, audience?: string }
 }
 
 export async function getInviteCodeAction(betId: string) {

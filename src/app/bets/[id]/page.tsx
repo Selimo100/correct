@@ -308,15 +308,6 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
            <InviteCodePanel betId={id} initialCode={isNew === 'true' ? inviteCode : undefined} />
         )}
 
-        {/* User's Current Position */}
-        {userEntry && (
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="font-medium text-blue-900 mb-1">Your Current Position</div>
-            <div className="text-blue-800">
-              {userEntry.stake} Neos on <span className="font-semibold">{userEntry.side}</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Stake Form */}
@@ -368,8 +359,8 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
                        {p.user_id === user?.id && <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 rounded">You</span>}
                     </div>
                     <div className="flex items-center space-x-4 text-sm">
-                       <span className={p.vote === 'YES' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                         {p.vote === 'YES' ? 'FOR' : 'AGAINST'}
+                       <span className={p.vote === 'FOR' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                         {p.vote === 'FOR' ? 'FOR' : 'AGAINST'}
                        </span>
                        <span className="text-gray-500">{p.amount} Neos</span>
                     </div>

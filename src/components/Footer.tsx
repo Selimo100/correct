@@ -21,7 +21,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-4 text-center text-xs text-gray-400">
-          © {new Date().getFullYear()} Correct?. All rights reserved.
+          © {new Date().getFullYear()} Correct?
         </div>
       </div>
     </footer>

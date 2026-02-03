@@ -1,50 +1,78 @@
-import Link from 'next/link'
-import { getCurrentUser } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
+import Link from "next/link"
+import { getCurrentUser } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ")
+}
+
+function NavLink({
+  href,
+  children,
+  active = false,
+}: {
+  href: string
+  children: React.ReactNode
+  active?: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "rounded-full px-3 py-1.5 text-sm font-medium transition",
+        active
+          ? "bg-primary-600 text-white shadow-soft"
+          : "text-gray-600 hover:text-primary-700 hover:bg-primary-50"
+      )}
+    >
+      {children}
+    </Link>
+  )
+}
 
 export default async function Header() {
   const user = await getCurrentUser()
   const supabase = await createClient()
-  
+
   let balance = 0
   if (user) {
-    // @ts-expect-error - Supabase RPC typing issue
-    const { data } = await supabase.rpc('get_balance', { p_user_id: user.id })
+    // @ts-expect-error Supabase RPC typing
+    const { data } = await supabase.rpc("get_balance", {
+      p_user_id: user.id,
+    })
     balance = (data as unknown as number) || 0
   }
 
   return (
-    <header className="bg-white shadow-sm border-b">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <Link href="/" className="flex items-center">
-              <span className="text-2xl font-bold text-primary-600">Correct?</span>
+    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/70 backdrop-blur-xs shadow-header">
+      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          {/* Left */}
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-700 text-white font-bold shadow-soft">
+                C?
+              </span>
+              <span className="text-lg font-semibold text-gray-900">
+                Correct?
+              </span>
             </Link>
+
             {user && (
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <Link
-                  href="/"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-primary-600"
-                >
+              <div className="hidden sm:flex items-center gap-1 rounded-full border border-gray-200 bg-white px-1 py-1 shadow-soft">
+                <NavLink href="/" active>
                   Feed
-                </Link>
-                <Link
-                  href="/bets/new"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-primary-600"
-                >
-                  Create Bet
-                </Link>
-                <Link
-                  href="/wallet"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-primary-600"
-                >
-                  Wallet
-                </Link>
+                </NavLink>
+                <NavLink href="/bets/new">Create</NavLink>
+                <NavLink href="/friends">Friends</NavLink>
+                <NavLink href="/groups">Groups</NavLink>
+                <NavLink href="/wallet">Wallet</NavLink>
+
                 {user.is_admin && (
                   <Link
                     href="/admin"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-purple-600 hover:text-purple-800"
+                    className="ml-1 rounded-full px-3 py-1.5 text-sm font-semibold
+                               bg-primary-900 text-white hover:bg-primary-800 transition"
                   >
                     Admin
                   </Link>
@@ -52,41 +80,53 @@ export default async function Header() {
               </div>
             )}
           </div>
-          <div className="flex items-center">
+
+          {/* Right */}
+          <div className="flex items-center gap-3">
             {user ? (
-              <div className="flex items-center space-x-4">
-                <div className="text-sm">
-                  <div className="font-medium text-gray-900">{user.username}</div>
-                  <div className="text-primary-600 font-semibold">{balance} Neos</div>
-                </div>
-                <Link
-                  href="/profile"
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Profile
-                </Link>
-                <form action="/auth/sign-out" method="post">
-                  <button
-                    type="submit"
-                    className="text-sm text-gray-500 hover:text-gray-700"
+              <>
+                <div className="hidden sm:flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-1.5 shadow-soft">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {user.username}
+                    </div>
+                    <div className="inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700">
+                      {balance} Neos
+                    </div>
+                  </div>
+
+                  <div className="h-8 w-px bg-gray-200" />
+
+                  <Link
+                    href="/profile"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50"
                   >
-                    Sign Out
-                  </button>
-                </form>
-              </div>
+                    Profile
+                  </Link>
+
+                  <form action="/auth/sign-out" method="post">
+                    <button
+                      type="submit"
+                      className="rounded-full px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50"
+                    >
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              </>
             ) : (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-2">
                 <Link
                   href="/auth/sign-in"
-                  className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                  className="rounded-full px-3 py-2 text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50"
                 >
-                  Sign In
+                  Sign in
                 </Link>
                 <Link
                   href="/auth/sign-up"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+                  className="rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft hover:bg-primary-700 transition"
                 >
-                  Sign Up
+                  Sign up
                 </Link>
               </div>
             )}

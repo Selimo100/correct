@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Database } from '@/lib/database.types'
+import AdminGrantFundsForm from '@/components/AdminGrantFundsForm'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -282,6 +283,10 @@ export default async function AdminUsersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                    <div className="mb-2">
+                      <AdminGrantFundsForm userId={user.id} username={user.username} />
+                    </div>
+                    
                     {user.id !== currentUser.id && (
                       <>
                         <form action={setUserStatus} className="inline">

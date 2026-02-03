@@ -54,9 +54,26 @@ export default function BetCard({ bet, showCreator = true }: BetCardProps) {
       )
     }
     return (
-      <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-800">
-        OPEN
-      </span>
+      <div className="flex flex-wrap gap-2">
+        {((bet as any).audience === 'PRIVATE' || bet.visibility === 'PRIVATE') && (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+            PRIVATE
+          </span>
+        )}
+        {(bet as any).audience === 'FRIENDS' && (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+            FRIENDS
+          </span>
+        )}
+        {(bet as any).audience === 'GROUP' && (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800 max-w-[120px] truncate">
+            {(bet as any).group?.name || 'GROUP'}
+          </span>
+        )}
+        <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-800">
+          OPEN
+        </span>
+      </div>
     )
   }
   
