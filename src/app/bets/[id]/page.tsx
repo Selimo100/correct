@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import StakeForm from '@/components/StakeForm'
 import CommentSection, { CommentType } from '@/components/CommentSection'
 import PrivateBetGate from '@/components/PrivateBetGate'
+import InviteCodePanel from '@/components/InviteCodePanel'
 import { formatToZurich } from '@/lib/date'
 import type { Database } from '@/lib/database.types'
 
@@ -40,7 +41,7 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
   // Use RPC to get bet details + access check + anonymity handling
   let bet: Bet | null = null
   
-  const { data: rpcData, error: rpcError } = await supabase.rpc('fn_get_bet_detail', {
+  const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('fn_get_bet_detail', {
     p_bet_id: id
   })
 
@@ -64,7 +65,7 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
     
     // Mock the enhanced fields for the fallback
     bet = {
-      ...fallbackData,
+      ...(fallbackData as any),
       visibility: (fallbackData as any).visibility || 'PUBLIC',
       hide_participants: (fallbackData as any).hide_participants || false,
       invite_code_enabled: (fallbackData as any).invite_code_enabled || false,
@@ -301,6 +302,11 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
           <span className="font-medium">Betting ends:</span>{' '}
           {formatToZurich(betData.end_at)}
         </div>
+
+        {/* --- CREATOR ONLY: Invite Code Panel --- */}
+        {user?.id === betData.creator_id && betData.visibility === 'PRIVATE' && betData.invite_code_enabled && (
+           <InviteCodePanel betId={id} initialCode={isNew === 'true' ? inviteCode : undefined} />
+        )}
 
         {/* User's Current Position */}
         {userEntry && (

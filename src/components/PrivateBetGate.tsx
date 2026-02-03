@@ -23,7 +23,7 @@ export default function PrivateBetGate({ betId, inviteCodeEnabled, initialCode =
     setError(null)
 
     try {
-      const { data, error } = await supabase.rpc('fn_join_private_bet', {
+      const { data, error } = await (supabase.rpc as any)('fn_join_private_bet', {
         p_bet_id: betId,
         p_invite_code: inviteCode.trim()
       })

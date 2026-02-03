@@ -247,6 +247,34 @@ export interface Database {
         }
         Returns: string
       }
+      fn_create_bet: {
+        Args: {
+          p_title: string
+          p_description: string | null
+          p_category_id: string | null
+          p_end_at: string
+          p_max_participants: number | null
+          p_visibility: string
+          p_invite_code_enabled: boolean
+          p_hide_participants: boolean
+          p_secret: string | null
+        }
+        Returns: Json
+      }
+      fn_get_invite_code: {
+        Args: {
+          p_bet_id: string
+          p_secret: string
+        }
+        Returns: string
+      }
+      fn_rotate_invite_code: {
+        Args: {
+          p_bet_id: string
+          p_secret: string
+        }
+        Returns: string
+      }
     }
     Views: {
       [_ in never]: never
