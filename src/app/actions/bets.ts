@@ -11,7 +11,20 @@ export async function createBetAction(formData: FormData) {
   const title = formData.get('title') as string
   const description = formData.get('description') as string
   const category_id = formData.get('category_id') as string
-  const end_at = formData.get('end_at') as string
+  const end_at_raw = formData.get('end_at') as string
+  
+  // Validate date
+  let end_at: string
+  try {
+    const d = new Date(end_at_raw)
+    if (isNaN(d.getTime())) {
+      throw new Error("Invalid date")
+    }
+    end_at = d.toISOString()
+  } catch (e) {
+    throw new Error("Invalid end date provided")
+  }
+
   const max_participants = formData.get('max_participants') ? parseInt(formData.get('max_participants') as string) : null
   const audience = (formData.get('audience') as string) || 'PUBLIC'
   const group_id = formData.get('group_id') as string
@@ -23,7 +36,7 @@ export async function createBetAction(formData: FormData) {
     p_title: title,
     p_description: description || null,
     p_category_id: category_id && category_id !== '' ? category_id : null,
-    p_end_at: new Date(end_at).toISOString(),
+    p_end_at: end_at,
     p_max_participants: max_participants,
     p_audience: audience,
     p_group_id: group_id && group_id !== '' ? group_id : null,
