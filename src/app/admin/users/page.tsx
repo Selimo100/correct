@@ -87,17 +87,19 @@ export default async function AdminUsersPage() {
       .eq('id', userId)
       .single()
     
+    // @ts-expect-error - targetProfile types might be strict
     if (targetProfile?.is_super_admin && !admin.is_super_admin) {
       throw new Error('Cannot delete super admin')
     }
     
     // Log the admin action first
+    // @ts-expect-error - admin_actions type outdated
     await supabase.from('admin_actions').insert({
       admin_id: admin.id,
       action: 'REJECT_USER',
       target_type: 'USER',
       target_id: userId,
-      details: { reason, username: targetProfile?.username }
+      details: { reason, username: (targetProfile as any)?.username }
     })
     
     // Create service role client

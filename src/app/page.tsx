@@ -37,11 +37,13 @@ export default async function HomePage({
   const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'newest'
 
   // Fetch categories for filter
+  // @ts-expect-error - RPC typing issue
   const { data: categories } = await supabase.rpc('fn_list_categories', {
     p_include_inactive: false
   })
 
   // Fetch bets using search RPC
+  // @ts-expect-error - RPC typing issue
   const { data: searchResults, error } = await supabase.rpc('fn_search_bets', {
     p_search_text: q,
     p_category_id: categoryId,
@@ -82,7 +84,7 @@ export default async function HomePage({
         </Link>
       </div>
 
-      <SearchFilters categories={(categories as any[]) || []} />
+      <SearchFilters categories={(categories as unknown as any[]) || []} />
 
       {!bets || bets.length === 0 ? (
         <div className="text-center py-12">

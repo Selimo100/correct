@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Correct? - Statement-based Betting with Neos',
+  title: 'Correct?',
   description: 'Place bets on statements using internal currency (Neos). Built by Luana & Selina.',
 }
 

@@ -29,11 +29,13 @@ export default async function BetDetailPage({ params }: Props) {
   const user = await getCurrentUser()
   
   // Fetch bet details - simplified query without joins first
-  const { data: bet, error: betError } = await supabase
+  const { data: rawBet, error: betError } = await supabase
     .from('bets')
     .select('*')
     .eq('id', id)
     .single()
+  
+  const bet = rawBet as Bet | null
   
   if (betError || !bet) {
     console.error('Bet fetch error:', betError)
@@ -41,11 +43,13 @@ export default async function BetDetailPage({ params }: Props) {
   }
   
   // Fetch creator separately
-  const { data: creator } = await supabase
+  const { data: creatorData } = await supabase
     .from('profiles')
     .select('username')
     .eq('id', bet.creator_id)
     .single()
+  
+  const creator = creatorData as { username: string } | null
   
   // Fetch resolver if bet is resolved
   let resolver = null

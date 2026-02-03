@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
     
+    // @ts-expect-error - profile type
     if (!profile?.is_admin && !profile?.is_super_admin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user_id)
       .single()
     
+    // @ts-expect-error - targetProfile type
     if (targetProfile?.is_super_admin && !profile?.is_super_admin) {
       return NextResponse.json({ error: 'Cannot delete super admin' }, { status: 403 })
     }
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
     )
     
     // Log the admin action first
+    // @ts-expect-error - admin_actions type outdated
     await supabase.from('admin_actions').insert({
       admin_id: user.id,
       action: 'REJECT_USER',

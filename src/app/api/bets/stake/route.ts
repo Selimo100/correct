@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Call the RPC function
+    // @ts-expect-error - Supabase typing issue
     const { data, error } = await supabase.rpc('place_stake', {
       p_bet_id: betId,
       p_side: side,

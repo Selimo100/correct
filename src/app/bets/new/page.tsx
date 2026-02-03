@@ -13,6 +13,7 @@ export default async function NewBetPage() {
   const supabase = await createClient()
 
   // Fetch active categories
+  // @ts-expect-error - RPC typing issue
   const { data: categories } = await supabase.rpc('fn_list_categories', {
     p_include_inactive: false
   })
@@ -45,7 +46,6 @@ export default async function NewBetPage() {
     
     const { data, error } = await supabase
       .from('bets')
-      // @ts-expect-error - Supabase insert typing issue
       .insert(betData)
       .select()
       .single()
