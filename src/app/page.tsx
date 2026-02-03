@@ -19,7 +19,21 @@ export default async function HomePage({
   // Parse params
   const q = typeof searchParams.q === 'string' ? searchParams.q : undefined
   const categoryId = typeof searchParams.category === 'string' && searchParams.category ? searchParams.category : undefined
-  const status = typeof searchParams.status === 'string' && searchParams.status ? searchParams.status : undefined
+  
+  // Default status to 'OPEN' if not provided.
+  // We use 'ALL' as the special value to mean "no filter" (which maps to undefined/null for the RPC)
+  let status: string | undefined = typeof searchParams.status === 'string' ? searchParams.status : 'OPEN'
+  
+  // If user selected 'ALL', we want to pass undefined to the RPC to get all statuses
+  if (status === 'ALL') {
+    status = undefined
+  } else if (!status) {
+    // If empty string (sometimes happens depending on how filters update), decide behavior.
+    // Assuming empty string means "Clear filter" -> "ALL"? Or "Default"?
+    // SearchFilters component currently sends '' for All. So '' -> undefined (pass to RPC)
+    status = undefined
+  }
+
   const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'newest'
 
   // Fetch categories for filter

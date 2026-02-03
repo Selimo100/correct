@@ -122,17 +122,13 @@ export default function SearchFilters({ categories }: { categories: Category[] }
                 { label: 'Locked', value: 'LOCKED' },
                 { label: 'Resolved', value: 'RESOLVED' },
                 { label: 'Void', value: 'VOID' },
-                { label: 'All', value: '' }, // Empty string for all
+                { label: 'All', value: 'ALL' },
               ].map((status) => (
                 <button
                   key={status.label}
                   onClick={() => handleFilterChange('status', status.value)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
-                    (activeStatus === status.value) || (status.value === '' && !searchParams.has('status') && false) // We handle default logic in parent, usually
-                    // Wait, URL param 'status' might be empty for 'All'. 
-                    // But we want Default to be OPEN. 
-                    // If URL param is missing, we consider it OPEN based on Page logic.
-                    // So visually we match activeStatus variable which defaults to OPEN.
+                    activeStatus === status.value
                       ? 'bg-gray-900 text-white border-gray-900'
                       : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                   }`}

@@ -161,14 +161,6 @@ export default async function AdminUsersPage() {
         </a>
       </div>
 
-      {/* Debug Info - Remove after testing */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded text-xs">
-          <strong>Debug:</strong> Found {userList.length} total users
-          {error && <div className="text-red-600">Error: {error.message}</div>}
-        </div>
-      )}
-
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4 mb-8">
         <div className="bg-white rounded-lg shadow-sm border p-6">

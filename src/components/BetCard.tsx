@@ -78,34 +78,43 @@ export default function BetCard({ bet, showCreator = true }: BetCardProps) {
   }
 
   return (
-    <Link href={`/bets/${bet.id}`}>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <Link href={`/bets/${bet.id}`} className="block h-full group">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-all duration-200 h-full flex flex-col hover:border-primary-200">
         <div className="flex justify-between items-start mb-3">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{bet.title}</h3>
+          <div className="flex-1 pr-2">
+            <h3 className="text-lg font-bold text-gray-900 mb-1 leading-snug group-hover:text-primary-600 transition-colors line-clamp-2">
+              {bet.title}
+            </h3>
             {showCreator && bet.profiles && (
-              <p className="text-sm text-gray-500">by {bet.profiles.username}</p>
+              <p className="text-xs text-gray-500 font-medium space-x-1">
+                <span>by</span>
+                <span className="text-gray-700">@{bet.profiles.username}</span>
+              </p>
             )}
           </div>
-          <div>{statusBadge()}</div>
+          <div className="flex-shrink-0">{statusBadge()}</div>
         </div>
         
-        {bet.description && (
-          <p className="text-sm text-gray-600 mb-4 line-clamp-2">{bet.description}</p>
-        )}
+        <div className="flex-grow">
+          {bet.description && (
+            <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
+              {bet.description}
+            </p>
+          )}
+        </div>
         
-        <div className="space-y-3">
+        <div className="pt-4 mt-auto border-t border-gray-100 space-y-3">
           {/* Pot and Participants */}
-          <div className="flex justify-between text-sm">
-            <div>
-              <span className="text-gray-500">Pot:</span>
-              <span className="ml-2 font-semibold text-primary-600">{totalPot} Neos</span>
+          <div className="flex justify-between items-center text-sm">
+            <div className="flex items-center text-gray-700 font-medium">
+              <span className="mr-1.5 text-lg">💰</span>
+              <span>{totalPot} Neos</span>
             </div>
-            <div>
-              <span className="text-gray-500">Participants:</span>
-              <span className="ml-2 font-semibold">
+            <div className="flex items-center text-gray-500 text-xs">
+              <span className="mr-1">👥</span>
+              <span>
                 {participantCount}
-                {bet.max_participants && ` / ${bet.max_participants}`}
+                {bet.max_participants && `/${bet.max_participants}`}
               </span>
             </div>
           </div>
