@@ -30,33 +30,39 @@ export default async function NewBetPage() {
     const categoryId = formData.get('category_id') as string
     const endAtRaw = formData.get('end_at') as string
     const maxParticipants = formData.get('max_participants') as string
+    const visibility = (formData.get('visibility') as string) || 'PUBLIC'
+    const inviteCodeEnabled = formData.get('invite_code_enabled') === 'on'
+    const hideParticipants = formData.get('hide_participants') === 'on'
     
     // Parse the local datetime string as 'Europe/Zurich' and convert to UTC ISO
     const endAt = inputDateToZurichIso(endAtRaw)
     
-    const betData: any = { // Using any as the types might not reflect new column yet
-      creator_id: user.id,
-      title,
-      description: description || null,
-      category_id: categoryId || null,
-      category: null,
-      end_at: endAt, // This is now a UTC ISO string representing the Zurich time picked
-      max_participants: maxParticipants ? parseInt(maxParticipants) : null,
-    }
-    
-    const { data, error } = await supabase
-      .from('bets')
-      .insert(betData)
-      .select()
-      .single()
+    const { data, error } = await supabase.rpc('fn_create_bet', {
+      p_title: title,
+      p_description: description || null,
+      p_category_id: categoryId || null,
+      p_end_at: endAt,
+      p_max_participants: maxParticipants ? parseInt(maxParticipants) : null,
+      p_visibility: visibility,
+      p_invite_code_enabled: inviteCodeEnabled,
+      p_hide_participants: hideParticipants
+    })
     
     if (error) {
       throw new Error(error.message)
     }
+
+    const { id, invite_code } = data as { id: string, invite_code: string | null }
     
-    const result = data as BetRow
     revalidatePath('/')
-    redirect(`/bets/${result.id}`)
+    
+    // If private and has code, pass it to the URL so UI can show it
+    if (visibility === 'PRIVATE' && invite_code) {
+      // Encode code just in case, though it's alphanumeric
+      redirect(`/bets/${id}?new=true&code=${invite_code}`)
+    } else {
+      redirect(`/bets/${id}`)
+    }
   }
 
   return (
@@ -64,6 +70,44 @@ export default async function NewBetPage() {
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Create a New Bet</h1>
       
       <form action={createBet} className="space-y-6 bg-white p-8 rounded-lg shadow-sm border">
+        {/* Visibility Setting */}
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
+          <h3 className="font-medium text-gray-900">Visibility & Privacy</h3>
+          
+          <div className="flex flex-col space-y-2">
+            <label className="inline-flex items-center">
+              <input type="radio" name="visibility" value="PUBLIC" defaultChecked className="text-primary-600 focus:ring-primary-500" />
+              <span className="ml-2">Public</span>
+              <span className="ml-2 text-sm text-gray-500">- Visible to everyone, anyone can join</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input type="radio" name="visibility" value="PRIVATE" className="text-primary-600 focus:ring-primary-500" />
+              <span className="ml-2">Private</span>
+              <span className="ml-2 text-sm text-gray-500">- Hidden from feed, requires invite</span>
+            </label>
+          </div>
+
+          <div className="pl-6 border-l-2 border-gray-200 ml-1">
+             <label className="inline-flex items-center">
+              <input type="checkbox" name="invite_code_enabled" defaultChecked className="rounded text-primary-600 focus:ring-primary-500" />
+              <span className="ml-2 text-sm font-medium text-gray-700">Enable Invite Code</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1">
+              Generates a code you can share to allow users to join.
+            </p>
+          </div>
+
+          <div className="pt-2 border-t border-gray-200">
+             <label className="inline-flex items-center">
+              <input type="checkbox" name="hide_participants" className="rounded text-primary-600 focus:ring-primary-500" />
+              <span className="ml-2 font-medium text-gray-700">Hide Participant Names (Anonymous)</span>
+            </label>
+            <p className="text-sm text-gray-500 mt-1 pl-6">
+              If enabled, only totals are shown. Usernames are hidden from the public list.
+            </p>
+          </div>
+        </div>
+
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
             Statement / Title *

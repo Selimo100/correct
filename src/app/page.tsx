@@ -52,12 +52,27 @@ export default async function HomePage({
     p_limit: 50 // Increased limit for now
   })
   
-  if (error) {
-    console.error('Search error:', error)
+  // FALLBACK: If RPC fails, use standard query
+  let betsData = searchResults || [];
+
+  if (error || !searchResults) {
+    console.warn('RPC fn_search_bets failed, falling back to standard list', error)
+    
+    // Fallback: Just get latest 20 OPEN bets
+    const { data: fallbackBets } = await supabase
+      .from('bets')
+      .select(`
+        *,
+        creator:users!poster_id(username, avatar_url)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(20);
+      
+      betsData = fallbackBets || [];
   }
 
-  // Map RPC result to BetCard structure
-  const bets: Bet[] = (searchResults || []).map((res: any) => ({
+  // Map result to BetCard structure
+  const bets: Bet[] = betsData.map((res: any) => ({
     ...res,
     // Ensure compatibility with BetCard expectations
     profiles: { username: res.creator_username },

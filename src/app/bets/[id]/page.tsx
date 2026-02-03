@@ -3,10 +3,17 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import StakeForm from '@/components/StakeForm'
 import CommentSection, { CommentType } from '@/components/CommentSection'
+import PrivateBetGate from '@/components/PrivateBetGate'
 import { formatToZurich } from '@/lib/date'
 import type { Database } from '@/lib/database.types'
 
-type Bet = Database['public']['Tables']['bets']['Row']
+type Bet = Database['public']['Tables']['bets']['Row'] & { 
+  visibility: 'PUBLIC' | 'PRIVATE', 
+  hide_participants: boolean,
+  has_access: boolean,
+  invite_code_enabled: boolean,
+  participants?: any[]
+}
 
 type BetStats = {
   total_pot: number
@@ -20,29 +27,63 @@ type BetEntry = Database['public']['Tables']['bet_entries']['Row']
 export const dynamic = 'force-dynamic'
 
 interface Props {
-  params: Promise<{ id: string }>
+  params: { id: string }
+  searchParams: { new?: string, code?: string }
 }
 
-export default async function BetDetailPage({ params }: Props) {
-  const { id } = await params
+export default async function BetDetailPage({ params, searchParams }: Props) {
+  const { id } = params
+  const { new: isNew, code: inviteCode } = searchParams
   const supabase = await createClient()
   const user = await getCurrentUser()
   
-  // Fetch bet details - simplified query without joins first
-  const { data: rawBet, error: betError } = await supabase
-    .from('bets')
-    .select('*')
-    .eq('id', id)
-    .single()
+  // Use RPC to get bet details + access check + anonymity handling
+  let bet: Bet | null = null
   
-  const bet = rawBet as Bet | null
+  const { data: rpcData, error: rpcError } = await supabase.rpc('fn_get_bet_detail', {
+    p_bet_id: id
+  })
+
+  if (!rpcError && rpcData) {
+    bet = rpcData as unknown as Bet
+  } else {
+    // FALLBACK: If RPC missing or failed, try standard select
+    console.warn('RPC fn_get_bet_detail failed, falling back to standard query', rpcError)
+    
+    // We select specific fields if they exist, or * and careful with types
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('bets')
+      .select('*')
+      .eq('id', id)
+      .single()
+      
+    if (fallbackError || !fallbackData) {
+       console.error('Fallback fetch error:', fallbackError)
+       notFound()
+    }
+    
+    // Mock the enhanced fields for the fallback
+    bet = {
+      ...fallbackData,
+      visibility: (fallbackData as any).visibility || 'PUBLIC',
+      hide_participants: (fallbackData as any).hide_participants || false,
+      invite_code_enabled: (fallbackData as any).invite_code_enabled || false,
+      has_access: true, // If RLS let us read it, we have access
+      participants: [] // Cannot easily fetch participants list in fallback without joining
+    } as unknown as Bet
+  }
   
-  if (betError || !bet) {
-    console.error('Bet fetch error:', betError)
+  // Final check
+  if (!bet) {
     notFound()
   }
   
-  // Fetch creator separately
+  // 1. Access Check for Private Bets
+  if (bet.visibility === 'PRIVATE' && !bet.has_access) {
+     return <PrivateBetGate betId={id} inviteCodeEnabled={bet.invite_code_enabled} initialCode={inviteCode} />
+  }
+
+  // Fetch creator separately (if not in RPC details fully, though RPC returns creator_id)
   const { data: creatorData } = await supabase
     .from('profiles')
     .select('username')
@@ -62,31 +103,35 @@ export default async function BetDetailPage({ params }: Props) {
     resolver = resolverData
   }
   
-  // Fetch bet stats
-  // @ts-expect-error - Supabase RPC typing issue
-  const { data: stats } = await supabase.rpc('get_bet_stats', { p_bet_id: id })
+  // Extract Stats directly from RPC response
+  // The RPC returns aggregates in the root object
+  const statsData: BetStats = {
+     total_pot: (bet as any).pot_total || 0,
+     for_stake: (bet as any).amount_yes || 0,
+     against_stake: (bet as any).amount_no || 0,
+     participant_count: (bet as any).participants_total || 0
+  }
   
-  // Fetch user's current entry if logged in
+  // Find my entry from the participants array returned by RPC
+  // The RPC guarantees "Only show self" if anonymous, so if I have an entry, it IS in the list.
+  const participants = bet.participants || []
   let userEntry: BetEntry | null = null
   let userBalance = 0
   
   if (user) {
-    const { data: entry } = await supabase
-      .from('bet_entries')
-      .select('*')
-      .eq('bet_id', id)
-      .eq('user_id', user.id)
-      .single()
-    
-    userEntry = entry as BetEntry | null
-    
+    const myEntry = participants.find((p: any) => p.user_id === user.id)
+    if (myEntry) {
+       // Map to BetEntry shape if needed, or use as is. 
+       // BetEntry row shape: id, bet_id, user_id, amount, vote, created_at...
+       userEntry = myEntry as BetEntry
+    }
+
     // @ts-expect-error - Supabase RPC typing issue
     const { data: balance } = await supabase.rpc('get_balance', { p_user_id: user.id })
     userBalance = (balance as unknown as number) || 0
   }
   
   const betData = bet
-  const statsData = (stats as unknown as BetStats) || { total_pot: 0, for_stake: 0, against_stake: 0, participant_count: 0 }
   
   const isLocked = new Date(betData.end_at) <= new Date() && betData.status === 'OPEN'
   const canStake = user && betData.status === 'OPEN' && !isLocked
@@ -97,7 +142,7 @@ export default async function BetDetailPage({ params }: Props) {
   const forPercentage = totalPot > 0 ? Math.round((forStake / totalPot) * 100) : 50
   const againstPercentage = totalPot > 0 ? Math.round((againstStake / totalPot) * 100) : 50
 
-  // Fetch comments
+  // Fetch comments (RLS safe now)
   const { data: rawComments } = await supabase
     .from('comments')
     .select('*, profiles(username, first_name, last_name)')
@@ -134,6 +179,32 @@ export default async function BetDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {isNew === 'true' && betData.visibility === 'PRIVATE' && (
+         <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-bold text-purple-900 mb-2">Private Bet Created!</h3>
+            <p className="text-purple-800 mb-4">
+              Your private bet is ready. Share the invite code below with users you want to invite.
+            </p>
+            {inviteCode && (
+               <div className="space-y-4">
+                 <div className="bg-white p-4 rounded border border-purple-200 flex justify-between items-center max-w-md">
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Invite Code</div>
+                      <code className="text-xl font-mono font-bold tracking-widest">{inviteCode}</code>
+                    </div>
+                 </div>
+                 
+                 <div className="bg-white p-4 rounded border border-purple-200">
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Share Link (Auto-fill Code)</div>
+                    <code className="block text-sm font-mono bg-gray-50 p-2 rounded break-all">
+                       {`${process.env.NEXT_PUBLIC_APP_URL || 'https://correct.app'}/bets/${id}?code=${inviteCode}`}
+                    </code>
+                 </div>
+               </div>
+            )}
+         </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-sm border p-8 mb-6">
         {/* Status Badge */}
         <div className="flex justify-between items-start mb-4">
@@ -156,6 +227,16 @@ export default async function BetDetailPage({ params }: Props) {
             {betData.status === 'OPEN' && !isLocked && (
               <span className="px-3 py-1 text-sm font-medium rounded-full bg-primary-100 text-primary-800">
                 OPEN
+              </span>
+            )}
+            {betData.visibility === 'PRIVATE' && (
+              <span className="ml-2 px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
+                PRIVATE
+              </span>
+            )}
+            {betData.hide_participants && (
+              <span className="ml-2 px-3 py-1 text-sm font-medium rounded-full bg-slate-100 text-slate-800">
+                ANONYMOUS
               </span>
             )}
           </div>
@@ -262,6 +343,38 @@ export default async function BetDetailPage({ params }: Props) {
           <p className="text-gray-600">This bet has been {betData.status.toLowerCase()}.</p>
         </div>
       )}
+
+      {/* Participants Section */}
+      <div className="bg-white rounded-lg shadow-sm border p-8 mb-6 mt-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Participants</h3>
+        {betData.hide_participants && (!betData.participants || betData.participants.length <= 1) ? (
+           <div className="flex items-center text-gray-500 italic">
+              <span className="mr-2">👻</span>
+              Participants are hidden for this bet (Anonymous Mode).
+           </div>
+        ) : (
+           <div className="space-y-2">
+             {betData.participants && betData.participants.length > 0 ? (
+                betData.participants.map((p: any) => (
+                  <div key={p.id} className="flex justify-between items-center py-2 border-b last:border-0 border-gray-100">
+                    <div className="flex items-center">
+                       <span className="font-medium text-gray-900">{p.username || 'Unknown'}</span>
+                       {p.user_id === user?.id && <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 rounded">You</span>}
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm">
+                       <span className={p.vote === 'YES' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                         {p.vote === 'YES' ? 'FOR' : 'AGAINST'}
+                       </span>
+                       <span className="text-gray-500">{p.amount} Neos</span>
+                    </div>
+                  </div>
+                ))
+             ) : (
+                <p className="text-gray-500">No participants yet.</p>
+             )}
+           </div>
+        )}
+      </div>
 
       {/* Comment Section */}
       <CommentSection 
