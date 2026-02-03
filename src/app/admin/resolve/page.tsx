@@ -1,119 +1,197 @@
-import { requireAdmin } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import type { Database } from '@/lib/database.types'
+import { requireAdmin } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+import Link from "next/link"
+import type { Database } from "@/lib/database.types"
 
-type Bet = Database['public']['Tables']['bets']['Row'] & {
+type Bet = Database["public"]["Tables"]["bets"]["Row"] & {
   profiles?: { username: string }
 }
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
+
+function formatWhen(d: string) {
+  return new Date(d).toLocaleString()
+}
+
+function overdueLabel(endAt: string) {
+  const daysOverdue = Math.floor((Date.now() - new Date(endAt).getTime()) / (1000 * 60 * 60 * 24))
+  if (daysOverdue <= 0) return { days: 0, label: "Due today" }
+  return { days: daysOverdue, label: `${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue` }
+}
+
+function outcomeBadge(resolution: boolean | null) {
+  const base = "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold"
+  if (resolution === true) return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`
+  if (resolution === false) return `${base} bg-gray-100 text-gray-700 border-gray-200`
+  return `${base} bg-gray-100 text-gray-700 border-gray-200`
+}
 
 export default async function ResolveQueuePage() {
   await requireAdmin()
   const supabase = await createClient()
 
-  // Get all locked/ended bets that need resolution
-  const { data: pendingBets } = await supabase
-    .from('bets')
-    .select(`
-      *,
-      profiles!bets_creator_id_fkey(username)
-    `)
-    .eq('status', 'OPEN')
-    .lt('end_at', new Date().toISOString())
-    .order('end_at', { ascending: true })
+  const nowIso = new Date().toISOString()
 
-  // Get recently resolved bets for reference
-  const { data: resolvedBets } = await supabase
-    .from('bets')
-    .select(`
+  const { data: pendingBets } = await supabase
+    .from("bets")
+    .select(
+      `
       *,
       profiles!bets_creator_id_fkey(username)
-    `)
-    .eq('status', 'RESOLVED')
-    .order('resolved_at', { ascending: false })
+    `
+    )
+    .eq("status", "OPEN")
+    .lt("end_at", nowIso)
+    .order("end_at", { ascending: true })
+
+  const { data: resolvedBets } = await supabase
+    .from("bets")
+    .select(
+      `
+      *,
+      profiles!bets_creator_id_fkey(username)
+    `
+    )
+    .eq("status", "RESOLVED")
+    .order("resolved_at", { ascending: false })
     .limit(10)
 
   const pendingList = (pendingBets as Bet[]) || []
   const resolvedList = (resolvedBets as Bet[]) || []
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Resolution Queue</h1>
-        <Link
-          href="/admin"
-          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-        >
-          ← Back to Dashboard
-        </Link>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 space-y-6">
+      {/* Hero */}
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft">
+        <div className="p-6 sm:p-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
+              Resolution Queue
+            </h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Resolve bets that passed their end date and keep outcomes accurate.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                Pending resolutions
+              </span>
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                Last 10 resolved
+              </span>
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                Admin only
+              </span>
+            </div>
+          </div>
+
+          <Link
+            href="/admin"
+            className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-primary-50 hover:text-primary-700"
+          >
+            ← Back to Dashboard
+          </Link>
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 mb-8">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="text-sm text-gray-600">Pending Resolution</div>
-          <div className="text-3xl font-bold text-yellow-600">{pendingList.length}</div>
-          <p className="text-xs text-gray-500 mt-2">Bets past their end date</p>
+      {/* Summary */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+            Pending Resolution
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="text-3xl font-semibold text-amber-700">{pendingList.length}</div>
+            <div className="text-sm font-semibold text-gray-500">bets</div>
+          </div>
+          <p className="mt-2 text-sm text-gray-600">Past their end date.</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="text-sm text-gray-600">Recently Resolved</div>
-          <div className="text-3xl font-bold text-green-600">{resolvedList.length}</div>
-          <p className="text-xs text-gray-500 mt-2">Last 10 resolutions</p>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+            Recently Resolved
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="text-3xl font-semibold text-primary-700">{resolvedList.length}</div>
+            <div className="text-sm font-semibold text-gray-500">entries</div>
+          </div>
+          <p className="mt-2 text-sm text-gray-600">Latest 10 resolutions.</p>
         </div>
       </div>
 
       {/* Pending Resolutions */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Pending Resolutions ({pendingList.length})
-        </h2>
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Pending Resolutions</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Bets that ended but are still marked OPEN.
+              </p>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+              {pendingList.length}
+            </span>
+          </div>
+        </div>
+
         {pendingList.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-            <p className="text-gray-500">🎉 All bets are up to date! No pending resolutions.</p>
+          <div className="p-10 text-center">
+            <p className="text-sm font-semibold text-gray-900">All bets are up to date.</p>
+            <p className="mt-1 text-sm text-gray-600">No pending resolutions right now.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100">
             {pendingList.map((bet) => {
-              const daysOverdue = Math.floor(
-                (new Date().getTime() - new Date(bet.end_at).getTime()) / (1000 * 60 * 60 * 24)
-              )
-              
+              const overdue = overdueLabel(bet.end_at)
               return (
-                <div key={bet.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
+                <div key={bet.id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
                       <Link
                         href={`/bets/${bet.id}`}
-                        className="font-medium text-gray-900 hover:text-primary-600"
+                        className="block truncate text-sm font-semibold text-gray-900 hover:text-primary-700"
                       >
                         {bet.title}
                       </Link>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Created by {bet.profiles?.username || 'Unknown'} •{' '}
-                        Ended {new Date(bet.end_at).toLocaleString()}
-                      </div>
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        <span>
-                          {daysOverdue === 0 ? 'Today' : `${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue`}
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                          @{bet.profiles?.username || "unknown"}
                         </span>
-                        {/* @ts-expect-error - RPC typing issue */}
-                        <span>Pot: {bet.total_pot} Neos</span>
-                        <span>
+
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                          {overdue.label}
+                        </span>
+
+                        <span className="text-xs text-gray-500">Ended {formatWhen(bet.end_at)}</span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                          {/* @ts-expect-error - total_pot missing from type */}
+                          Pot: {bet.total_pot || 0} Neos
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
                           {/* @ts-expect-error - RPC typing issue */}
-                          FOR: {bet.stake_for} • AGAINST: {bet.stake_against}
+                          FOR: {bet.stake_for || 0}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                          {/* @ts-expect-error - RPC typing issue */}
+                          AGAINST: {bet.stake_against || 0}
                         </span>
                       </div>
+
                       {bet.description && (
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                        <p className="mt-3 text-sm text-gray-600 line-clamp-2">
                           {bet.description}
                         </p>
                       )}
                     </div>
+
                     <Link
                       href={`/admin/resolve/${bet.id}`}
-                      className="ml-4 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700"
+                      className="shrink-0 inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700"
                     >
                       Resolve Now
                     </Link>
@@ -126,43 +204,57 @@ export default async function ResolveQueuePage() {
       </div>
 
       {/* Recently Resolved */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Recently Resolved
-        </h2>
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Recently Resolved</h2>
+              <p className="mt-1 text-sm text-gray-600">For quick reference.</p>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
+              {resolvedList.length}
+            </span>
+          </div>
+        </div>
+
         {resolvedList.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-            <p className="text-gray-500">No resolved bets yet</p>
+          <div className="p-10 text-center">
+            <p className="text-sm font-semibold text-gray-900">No resolved bets yet.</p>
+            <p className="mt-1 text-sm text-gray-600">Resolved bets will appear here.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100">
             {resolvedList.map((bet) => (
-              <div key={bet.id} className="bg-white border rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
+              <div key={bet.id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <Link
                       href={`/bets/${bet.id}`}
-                      className="font-medium text-gray-900 hover:text-primary-600"
+                      className="block truncate text-sm font-semibold text-gray-900 hover:text-primary-700"
                     >
                       {bet.title}
                     </Link>
-                    <div className="text-sm text-gray-600 mt-1">
-                      Resolved {bet.resolved_at ? new Date(bet.resolved_at).toLocaleString() : 'Recently'}
-                    </div>
-                    <div className="flex items-center space-x-4 mt-2 text-xs">
-                      <span className={`px-2 py-1 rounded font-medium ${
-                        bet.resolution === true
-                          ? 'bg-green-100 text-green-700'
-                          : bet.resolution === false
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        Outcome: {bet.resolution ? 'FOR' : 'AGAINST'}
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className={outcomeBadge(bet.resolution as any)}>
+                        Outcome: {bet.resolution === true ? "FOR" : "AGAINST"}
                       </span>
-                      {/* @ts-expect-error - total_pot missing from type */}
-                      <span className="text-gray-500">Pot: {bet.total_pot || 0} Neos</span>
+
+                      <span className="text-gray-500">
+                        Resolved{" "}
+                        {bet.resolved_at ? formatWhen(bet.resolved_at) : "Recently"}
+                      </span>
+
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-700">
+                        {/* @ts-expect-error - total_pot missing from type */}
+                        Pot: {bet.total_pot || 0} Neos
+                      </span>
                     </div>
                   </div>
+
+                  <span className="shrink-0 inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                    Resolved
+                  </span>
                 </div>
               </div>
             ))}

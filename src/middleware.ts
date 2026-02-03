@@ -3,15 +3,13 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  // ✅ Clone + extend request headers (needed for server-side active tabs)
+  // Clone + extend request headers (needed for server-side active tabs)
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-pathname", request.nextUrl.pathname)
   requestHeaders.set("x-full-path", request.nextUrl.pathname + request.nextUrl.search)
 
   let response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+    request: { headers: requestHeaders },
   })
 
   const supabase = createServerClient(
@@ -23,55 +21,34 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: any) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          request.cookies.set({ name, value, ...options })
 
-          // ✅ keep our custom headers when recreating response
+          // keep custom headers
           response = NextResponse.next({
-            request: {
-              headers: requestHeaders,
-            },
+            request: { headers: requestHeaders },
           })
 
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: any) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
+          request.cookies.set({ name, value: "", ...options })
 
-          // ✅ keep our custom headers when recreating response
+          // keep custom headers
           response = NextResponse.next({
-            request: {
-              headers: requestHeaders,
-            },
+            request: { headers: requestHeaders },
           })
 
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
+          response.cookies.set({ name, value: "", ...options })
         },
       },
     }
   )
 
-  // (Optional) if your updateSession does something important, keep it
-  // If updateSession is not needed anymore, you can remove this call.
+  // If updateSession is needed, keep it. (If it returns a response in your project, adapt accordingly.)
   try {
     await updateSession(request)
   } catch {
-    // ignore if not used / not required
+    // ignore
   }
 
   const {
@@ -80,23 +57,24 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname
 
-  // Public paths that don't require auth
-  const publicPaths = ["/auth/sign-in", "/auth/sign-up", "/about", "/privacy", "/terms"]
-  const isPublicPath = publicPaths.some((p) => path.startsWith(p))
+  // Separate auth pages from truly public pages
+  const authPages = ["/auth/sign-in", "/auth/sign-up"]
+  const publicPages = ["/about", "/privacy", "/terms"]
+
+  const isAuthPage = authPages.some((p) => path.startsWith(p))
+  const isPublicPage = publicPages.some((p) => path.startsWith(p))
+  const isPublicAccessible = isAuthPage || isPublicPage
 
   // Auth callback path
   if (path.startsWith("/auth/callback")) {
     return response
   }
 
-  // If not logged in and trying to access protected route
-  if (!user && !isPublicPath) {
+  // Not logged in and trying to access protected route -> redirect to sign-in
+  if (!user && !isPublicAccessible) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/sign-in"
-
-    // ✅ preserve where the user wanted to go
     url.searchParams.set("next", path)
-
     return NextResponse.redirect(url)
   }
 
@@ -108,56 +86,51 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .single()
 
-    if (profile) {
-      const userStatus = profile.status || "PENDING"
-      const isAdmin = profile.is_admin || profile.is_super_admin
+    const userStatus = profile?.status || "PENDING"
+    const isAdmin = !!(profile?.is_admin || profile?.is_super_admin)
 
-      // Admin paths - only accessible to admins
-      if (path.startsWith("/admin")) {
-        if (!isAdmin) {
-          const url = request.nextUrl.clone()
-          url.pathname = "/"
-          return NextResponse.redirect(url)
-        }
-        // Admins can access admin pages regardless of status
-        return response
-      }
-
-      // Approval page - accessible to all authenticated users
-      if (path === "/approval") {
-        // If user is ACTIVE, redirect to home
-        if (userStatus === "ACTIVE") {
-          const url = request.nextUrl.clone()
-          url.pathname = "/"
-          return NextResponse.redirect(url)
-        }
-        return response
-      }
-
-      // Auth pages - if already logged in, redirect based on status
-      if (isPublicPath) {
-        if (userStatus === "ACTIVE") {
-          const url = request.nextUrl.clone()
-          url.pathname = "/"
-          return NextResponse.redirect(url)
-        } else {
-          const url = request.nextUrl.clone()
-          url.pathname = "/approval"
-          return NextResponse.redirect(url)
-        }
-      }
-
-      // For all other pages, check if user is ACTIVE
-      if (userStatus !== "ACTIVE") {
-        // Allow profile page and sign-out for PENDING users
-        if (path === "/profile" || path === "/auth/sign-out") {
-          return response
-        }
-        // Redirect to approval page
+    // Admin paths - only accessible to admins
+    if (path.startsWith("/admin")) {
+      if (!isAdmin) {
         const url = request.nextUrl.clone()
-        url.pathname = "/approval"
+        url.pathname = "/"
         return NextResponse.redirect(url)
       }
+      return response
+    }
+
+    // Approval page
+    if (path === "/approval") {
+      if (userStatus === "ACTIVE") {
+        const url = request.nextUrl.clone()
+        url.pathname = "/"
+        return NextResponse.redirect(url)
+      }
+      return response
+    }
+
+    // If already logged in, block only the AUTH pages (sign-in / sign-up)
+    // but DO NOT block /about /privacy /terms
+    if (isAuthPage) {
+      const url = request.nextUrl.clone()
+      url.pathname = userStatus === "ACTIVE" ? "/" : "/approval"
+      return NextResponse.redirect(url)
+    }
+
+    // Allow public info pages for everyone (also PENDING)
+    if (isPublicPage) {
+      return response
+    }
+
+    // For all other pages, require ACTIVE
+    if (userStatus !== "ACTIVE") {
+      // Allow profile and sign-out for PENDING users
+      if (path === "/profile" || path === "/auth/sign-out") {
+        return response
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = "/approval"
+      return NextResponse.redirect(url)
     }
   }
 
@@ -166,13 +139,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

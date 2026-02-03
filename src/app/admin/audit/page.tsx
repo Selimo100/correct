@@ -1,140 +1,198 @@
-import { requireAdmin } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import type { Database } from '@/lib/database.types'
+import { requireAdmin } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+import Link from "next/link"
+import type { Database } from "@/lib/database.types"
 
-type AdminAction = Database['public']['Tables']['admin_actions']['Row'] & {
+type AdminAction = Database["public"]["Tables"]["admin_actions"]["Row"] & {
   profiles?: { username: string }
 }
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
+
+function formatWhen(d: string) {
+  return new Date(d).toLocaleString()
+}
+
+function labelizeAction(a: string) {
+  return a.toLowerCase().replace(/_/g, " ")
+}
+
+function actionBadge(action: string) {
+  const base = "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold"
+  if (action === "RESOLVE_BET") return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`
+  if (action === "VOID_BET") return `${base} bg-amber-50 text-amber-700 border-amber-200`
+  if (action === "HIDE_BET") return `${base} bg-gray-100 text-gray-700 border-gray-200`
+  if (action === "UNHIDE_BET") return `${base} bg-primary-50 text-primary-700 border-primary-200`
+  if (action.includes("ADMIN")) return `${base} bg-gray-900 text-white border-gray-900`
+  if (action.includes("USER")) return `${base} bg-primary-50 text-primary-700 border-primary-200`
+  return `${base} bg-gray-100 text-gray-700 border-gray-200`
+}
 
 export default async function AuditLogPage() {
   await requireAdmin()
   const supabase = await createClient()
 
-  // Get all admin actions
   const { data: actions } = await supabase
-    .from('admin_actions')
-    .select(`
+    .from("admin_actions")
+    .select(
+      `
       *,
       profiles(username)
-    `)
-    .order('created_at', { ascending: false })
+    `
+    )
+    .order("created_at", { ascending: false })
     .limit(100)
 
   const actionList = (actions as AdminAction[]) || []
 
-  // Group by action type for stats
   const actionCounts = actionList.reduce((acc, action) => {
     acc[action.action] = (acc[action.action] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
+  const totalModerations = (actionCounts.HIDE_BET || 0) + (actionCounts.UNHIDE_BET || 0)
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Audit Log</h1>
-        <Link
-          href="/admin"
-          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 space-y-6">
+      {/* Hero */}
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft">
+        <div className="p-6 sm:p-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
+              Audit Log
+            </h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Track admin activity across moderation, user management, and resolutions.
+            </p>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="text-sm text-gray-600">Total Actions</div>
-          <div className="text-3xl font-bold text-gray-900">{actionList.length}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="text-sm text-gray-600">Resolutions</div>
-          <div className="text-3xl font-bold text-green-600">
-            {actionCounts.RESOLVE_BET || 0}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                Last 100 actions
+              </span>
+              <span className="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
+                Immutable record
+              </span>
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                Admin only
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="text-sm text-gray-600">Voids</div>
-          <div className="text-3xl font-bold text-yellow-600">
-            {actionCounts.VOID_BET || 0}
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="text-sm text-gray-600">Moderations</div>
-          <div className="text-3xl font-bold text-red-600">
-            {(actionCounts.HIDE_BET || 0) + (actionCounts.UNHIDE_BET || 0)}
-          </div>
+
+          <Link
+            href="/admin"
+            className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-primary-50 hover:text-primary-700"
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
       </div>
 
-      {/* Action Log */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Actions</h2>
-          {actionList.length === 0 ? (
-            <p className="text-gray-500">No admin actions recorded yet</p>
-          ) : (
-            <div className="space-y-2">
-              {actionList.map((action) => {
-                let actionColor = 'text-gray-600'
-                let actionBg = 'bg-gray-50'
-                
-                if (action.action === 'RESOLVE_BET') {
-                  actionColor = 'text-green-700'
-                  actionBg = 'bg-green-50'
-                } else if (action.action === 'VOID_BET') {
-                  actionColor = 'text-yellow-700'
-                  actionBg = 'bg-yellow-50'
-                } else if (action.action === 'HIDE_BET') {
-                  actionColor = 'text-red-700'
-                  actionBg = 'bg-red-50'
-                } else if (action.action === 'UNHIDE_BET') {
-                  actionColor = 'text-blue-700'
-                  actionBg = 'bg-blue-50'
-                } else if (action.action.includes('ADMIN')) {
-                  actionColor = 'text-purple-700'
-                  actionBg = 'bg-purple-50'
-                }
+      {/* KPI cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Actions</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="text-3xl font-semibold text-gray-900">{actionList.length}</div>
+            <div className="text-sm font-semibold text-gray-500">events</div>
+          </div>
+        </div>
 
-                return (
-                  <div key={action.id} className={`flex justify-between items-center p-3 rounded ${actionBg}`}>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">
-                          {action.profiles?.username || 'Unknown Admin'}
-                        </span>
-                        <span className={`text-sm font-medium ${actionColor}`}>
-                          {action.action.toLowerCase().replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 text-right">
-                      {new Date(action.created_at).toLocaleString()}
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Resolutions</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="text-3xl font-semibold text-primary-700">{actionCounts.RESOLVE_BET || 0}</div>
+            <div className="text-sm font-semibold text-gray-500">resolve</div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Voids</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="text-3xl font-semibold text-amber-700">{actionCounts.VOID_BET || 0}</div>
+            <div className="text-sm font-semibold text-gray-500">void</div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Moderations</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <div className="text-3xl font-semibold text-gray-900">{totalModerations}</div>
+            <div className="text-sm font-semibold text-gray-500">hide/unhide</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Actions */}
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Recent Actions</h2>
+              <p className="mt-1 text-sm text-gray-600">Newest first.</p>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+              {actionList.length}
+            </span>
+          </div>
+        </div>
+
+        {actionList.length === 0 ? (
+          <div className="p-10 text-center">
+            <p className="text-sm font-semibold text-gray-900">No admin actions recorded yet.</p>
+            <p className="mt-1 text-sm text-gray-600">Actions will appear here automatically.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {actionList.map((action) => (
+              <div key={action.id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {action.profiles?.username || "Unknown Admin"}
+                      </span>
+                      <span className={actionBadge(action.action)}>{labelizeAction(action.action)}</span>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Action Type Breakdown */}
-      <div className="mt-8 bg-white rounded-lg shadow-sm border p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Action Breakdown</h2>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(actionCounts)
-            .sort(([, a], [, b]) => b - a)
-            .map(([action, count]) => (
-              <div key={action} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                <span className="text-sm font-medium text-gray-700">
-                  {action.toLowerCase().replace(/_/g, ' ')}
-                </span>
-                <span className="text-lg font-bold text-gray-900">{count}</span>
+                  <div className="text-xs font-semibold text-gray-500">{formatWhen(action.created_at)}</div>
+                </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Breakdown */}
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Action Breakdown</h2>
+              <p className="mt-1 text-sm text-gray-600">Counts by action type.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Object.entries(actionCounts)
+              .sort(([, a], [, b]) => b - a)
+              .map(([action, count]) => (
+                <div
+                  key={action}
+                  className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      {labelizeAction(action)}
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-gray-900">{count}</div>
+                  </div>
+                  <span className={actionBadge(action)}>{action.replace(/_/g, " ")}</span>
+                </div>
+              ))}
+          </div>
         </div>
       </div>
     </div>
