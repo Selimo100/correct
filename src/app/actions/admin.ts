@@ -34,7 +34,7 @@ export async function setBetHiddenAction(betId: string, hidden: boolean) {
     throw new Error(error.message)
   }
 
-  revalidatePath('/admin/moderate')
+  revalidatePath('/admin')
   return { success: true }
 }
 
@@ -52,7 +52,7 @@ export async function resolveBetAction(betId: string, outcome: boolean) {
     throw new Error(error.message)
   }
 
-  revalidatePath('/admin/moderate')
+  revalidatePath('/admin')
   return { success: true, result: data }
 }
 
@@ -68,6 +68,6 @@ export async function voidBetAction(betId: string) {
     throw new Error(error.message)
   }
 
-  revalidatePath('/admin/moderate')
+  revalidatePath('/admin')
   return { success: true, result: data }
 }

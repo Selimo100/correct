@@ -52,32 +52,7 @@ export default async function AuditLogPage() {
   const totalModerations = (actionCounts.HIDE_BET || 0) + (actionCounts.UNHIDE_BET || 0)
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 space-y-6">
-      {/* Hero */}
-      <div className="rounded-3xl border border-gray-200 bg-white shadow-soft">
-        <div className="p-6 sm:p-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
-              Audit Log
-            </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Track admin activity across moderation, user management, and resolutions.
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                Last 100 actions
-              </span>
-              <span className="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
-                Immutable record
-              </span>
-              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                Admin only
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-6 mt-6">
 
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
