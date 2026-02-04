@@ -177,7 +177,7 @@ export default function TermsPage() {
     <div className="relative mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       {/* soft background */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-24 right-[-10%] h-64 w-64 rounded-full bg-primary-200/40 blur-3xl" />
+        <div className="" />
         <div className="absolute -bottom-24 left-[-10%] h-64 w-64 rounded-full bg-primary-100/60 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary-200/60 to-transparent" />
       </div>

@@ -559,6 +559,48 @@ export interface Database {
           against_stake: number
         }[]
       }
+      fn_admin_list_bets: {
+        Args: {
+          p_search?: string | null
+          p_hidden?: string
+          p_status?: string
+          p_category_id?: string | null
+          p_sort?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          bet_id: string
+          title: string
+          description: string | null
+          end_at: string
+          created_at: string
+          hidden: boolean
+          status: string
+          derived_status: "OPEN" | "LOCKED" | "RESOLVED" | "VOID"
+          visibility: string
+          audience: string
+          creator_username: string
+          category_slug: string | null
+          category_name: string | null
+          pot: number
+          participants: number
+          for_total: number
+          against_total: number
+        }[]
+      }
+      fn_admin_bet_counts: {
+        Args: Record<string, never>
+        Returns: {
+          total: number
+          visible: number
+          hidden: number
+          open: number
+          locked: number
+          resolved: number
+          void: number
+        }
+      }
       fn_list_categories: {
         Args: {
           p_include_inactive?: boolean

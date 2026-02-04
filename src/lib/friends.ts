@@ -64,6 +64,7 @@ export const friends = {
     const supabase = createClient()
     const { error } = await supabase
       .from('friend_requests')
+      // @ts-expect-error - update types are failing validation
       .update({ status: 'CANCELED' })
       .eq('id', requestId)
     if (error) throw error

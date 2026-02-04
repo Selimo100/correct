@@ -1,10 +1,28 @@
 import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import Link from "next/link"
-import type { Database } from "@/lib/database.types"
 
-type Bet = Database["public"]["Tables"]["bets"]["Row"] & {
-  profiles?: { username: string }
+// Define the shape returned by the RPC fn_admin_list_bets
+type AdminBetRPC = {
+  bet_id: string
+  title: string
+  description: string | null
+  end_at: string
+  created_at: string
+  hidden: boolean
+  status: string
+  derived_status: string // 'LOCKED', 'OPEN', etc.
+  visibility: string
+  audience: string
+  creator_username: string | null
+  category_slug: string | null
+  category_name: string | null
+  pot: number
+  participants: number
+  for_total: number
+  against_total: number
+  resolution: boolean | null
+  resolved_at: string | null
 }
 
 export const dynamic = "force-dynamic"
@@ -30,34 +48,24 @@ export default async function ResolveQueuePage() {
   await requireAdmin()
   const supabase = await createClient()
 
-  const nowIso = new Date().toISOString()
+  // 1. Fetch PENDING (Locked) Bets using the Admin RPC
+  // @ts-expect-error - RPC args resolution issue
+  const { data: pendingData } = await supabase.rpc("fn_admin_list_bets", {
+    p_status: "locked",
+    p_limit: 50,
+    p_sort: "ending"
+  })
 
-  const { data: pendingBets } = await supabase
-    .from("bets")
-    .select(
-      `
-      *,
-      profiles!bets_creator_id_fkey(username)
-    `
-    )
-    .eq("status", "OPEN")
-    .lt("end_at", nowIso)
-    .order("end_at", { ascending: true })
+  // 2. Fetch RESOLVED Bets using the Admin RPC
+  // @ts-expect-error - RPC args resolution issue
+  const { data: resolvedData } = await supabase.rpc("fn_admin_list_bets", {
+    p_status: "resolved",
+    p_limit: 10,
+    p_sort: "newest"
+  })
 
-  const { data: resolvedBets } = await supabase
-    .from("bets")
-    .select(
-      `
-      *,
-      profiles!bets_creator_id_fkey(username)
-    `
-    )
-    .eq("status", "RESOLVED")
-    .order("resolved_at", { ascending: false })
-    .limit(10)
-
-  const pendingList = (pendingBets as Bet[]) || []
-  const resolvedList = (resolvedBets as Bet[]) || []
+  const pendingList = (pendingData as unknown as AdminBetRPC[]) || []
+  const resolvedList = (resolvedData as unknown as AdminBetRPC[]) || []
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 space-y-6">
@@ -145,11 +153,11 @@ export default async function ResolveQueuePage() {
             {pendingList.map((bet) => {
               const overdue = overdueLabel(bet.end_at)
               return (
-                <div key={bet.id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
+                <div key={bet.bet_id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <Link
-                        href={`/bets/${bet.id}`}
+                        href={`/bets/${bet.bet_id}`}
                         className="block truncate text-sm font-semibold text-gray-900 hover:text-primary-700"
                       >
                         {bet.title}
@@ -157,7 +165,7 @@ export default async function ResolveQueuePage() {
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                          @{bet.profiles?.username || "unknown"}
+                          @{bet.creator_username || "unknown"}
                         </span>
 
                         <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
@@ -169,16 +177,13 @@ export default async function ResolveQueuePage() {
 
                       <div className="mt-3 flex flex-wrap gap-2">
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                          {/* @ts-expect-error - total_pot missing from type */}
-                          Pot: {bet.total_pot || 0} Neos
+                          Pot: {bet.pot || 0} Neos
                         </span>
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                          {/* @ts-expect-error - RPC typing issue */}
-                          FOR: {bet.stake_for || 0}
+                          FOR: {bet.for_total || 0}
                         </span>
                         <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                          {/* @ts-expect-error - RPC typing issue */}
-                          AGAINST: {bet.stake_against || 0}
+                          AGAINST: {bet.against_total || 0}
                         </span>
                       </div>
 
@@ -190,7 +195,7 @@ export default async function ResolveQueuePage() {
                     </div>
 
                     <Link
-                      href={`/admin/resolve/${bet.id}`}
+                      href={`/admin/resolve/${bet.bet_id}`}
                       className="shrink-0 inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700"
                     >
                       Resolve Now
@@ -209,7 +214,7 @@ export default async function ResolveQueuePage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-gray-900">Recently Resolved</h2>
-              <p className="mt-1 text-sm text-gray-600">For quick reference.</p>
+              <p className="mt-1 text-sm text-gray-600">For quick reference (Updated via RPC).</p>
             </div>
             <span className="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
               {resolvedList.length}
@@ -225,29 +230,27 @@ export default async function ResolveQueuePage() {
         ) : (
           <div className="divide-y divide-gray-100">
             {resolvedList.map((bet) => (
-              <div key={bet.id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
+              <div key={bet.bet_id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Link
-                      href={`/bets/${bet.id}`}
+                      href={`/bets/${bet.bet_id}`}
                       className="block truncate text-sm font-semibold text-gray-900 hover:text-primary-700"
                     >
                       {bet.title}
                     </Link>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className={outcomeBadge(bet.resolution as any)}>
+                       <span className={outcomeBadge(bet.resolution)}>
                         Outcome: {bet.resolution === true ? "FOR" : "AGAINST"}
                       </span>
 
                       <span className="text-gray-500">
-                        Resolved{" "}
-                        {bet.resolved_at ? formatWhen(bet.resolved_at) : "Recently"}
+                        Resolved {bet.resolved_at ? formatWhen(bet.resolved_at) : "Recently"}
                       </span>
 
                       <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-700">
-                        {/* @ts-expect-error - total_pot missing from type */}
-                        Pot: {bet.total_pot || 0} Neos
+                        Pot: {bet.pot || 0} Neos
                       </span>
                     </div>
                   </div>

@@ -152,7 +152,7 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
   const replyMap = new Map<string, any[]>()
 
   // 1. Collect replies by parent_id
-  ;(rawComments as any[])?.forEach((c: any) => {
+  ;(rawComments as unknown as any[])?.forEach((c: any) => {
     // Map RPC flat response to UI structure
     const mappedComment = {
       id: c.id,

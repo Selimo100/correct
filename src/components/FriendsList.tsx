@@ -309,7 +309,7 @@ export default function FriendsList() {
 
                                 <div className="min-w-0">
                                   <div className="truncate text-sm font-semibold text-gray-900">
-                                    @{req.profiles.username}
+                                    @{req.profiles?.username || "unknown"}
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-gray-500">
                                     Waiting for response

@@ -21,11 +21,14 @@ export const dynamic = 'force-dynamic'
 
 interface Props {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string; message?: string }>
 }
 
-export default async function ResolveBetPage({ params }: Props) {
+export default async function ResolveBetPage({ params, searchParams }: Props) {
   await requireAdmin()
   const { id } = await params
+  const { error: errorMsg, message: successMsg } = await searchParams
+  
   const supabase = await createClient()
   
   const { data: bet } = await supabase
@@ -65,13 +68,15 @@ export default async function ResolveBetPage({ params }: Props) {
     })
     
     if (error) {
-      throw new Error(`Failed to resolve bet: ${error.message}`)
+      // Redirect with error message to display in UI
+      console.error("Resolve Error:", error)
+      redirect(`/admin/resolve/${betId}?error=${encodeURIComponent(error.message || JSON.stringify(error))}`)
     }
     
     const result = data as unknown as { success: boolean; error?: string; voided?: boolean; already_settled?: boolean }
     
     if (!result || !result.success) {
-      throw new Error(result?.error || 'Failed to resolve bet')
+      redirect(`/admin/resolve/${betId}?error=${encodeURIComponent(result?.error || 'Failed to resolve bet')}`)
     }
     
     // Success - revalidate and redirect
@@ -99,13 +104,13 @@ export default async function ResolveBetPage({ params }: Props) {
     const { data, error } = await supabase.rpc('void_bet', { p_bet_id: betId })
     
     if (error) {
-      throw new Error(`Failed to void bet: ${error.message}`)
+       redirect(`/admin/resolve/${betId}?error=${encodeURIComponent(error.message)}`)
     }
     
     const result = data as unknown as { success: boolean; error?: string; already_voided?: boolean }
     
     if (!result || !result.success) {
-      throw new Error(result?.error || 'Failed to void bet')
+       redirect(`/admin/resolve/${betId}?error=${encodeURIComponent(result?.error || 'Failed to void bet')}`)
     }
     
     // Success - revalidate and redirect
@@ -122,6 +127,18 @@ export default async function ResolveBetPage({ params }: Props) {
   return (
     <div className="max-w-3xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Resolve Bet</h1>
+
+      {/* Error/Success Messages */}
+      {errorMsg && (
+        <div className="mb-6 rounded-lg bg-red-50 p-4 border border-red-200 text-red-700">
+          <strong>Error:</strong> {errorMsg}
+        </div>
+      )}
+      {successMsg && (
+        <div className="mb-6 rounded-lg bg-emerald-50 p-4 border border-emerald-200 text-emerald-700">
+          {successMsg}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border p-8 mb-6">
         <h2 className="text-2xl font-semibold text-gray-900 mb-4">{betData.title}</h2>
