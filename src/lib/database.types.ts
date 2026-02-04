@@ -196,38 +196,29 @@ export interface Database {
       }
       bet_settlements: {
         Row: {
-          id: string
           bet_id: string
+          kind: 'RESOLVE' | 'VOID'
           outcome: boolean | null
-          total_pot: number
-          winners_total: number
-          fee_amount: number
-          payout_count: number
-          settled_by_id: string
+          fee_bps: number
           settled_at: string
-          metadata: Json | null
+          settled_by: string
         }
         Insert: {
-          id?: string
           bet_id: string
+          kind: 'RESOLVE' | 'VOID'
           outcome?: boolean | null
-          total_pot?: number
-          winners_total?: number
-          fee_amount?: number
-          payout_count?: number
-          settled_by_id: string
+          fee_bps?: number
           settled_at?: string
-          metadata?: Json | null
+          settled_by: string
         }
         Update: {
-          id?: string
           bet_id?: string
+          kind?: 'RESOLVE' | 'VOID'
           outcome?: boolean | null
-          total_pot?: number
-          winners_total?: number
-          fee_amount?: number
-          payout_count?: number
-          settled_by_id?: string
+          fee_bps?: number
+          settled_at?: string
+          settled_by?: string
+        }
           settled_at?: string
           metadata?: Json | null
         }
@@ -625,4 +616,3 @@ export interface Database {
       [_ in never]: never
     }
   }
-}

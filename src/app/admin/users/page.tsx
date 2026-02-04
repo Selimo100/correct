@@ -29,6 +29,14 @@ function roleLabel(u: Profile) {
   return "User"
 }
 
+function statusBadge(status: string) {
+  const base = "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold"
+  if (status === "PENDING") return `${base} bg-amber-50 text-amber-700 border-amber-200`
+  if (status === "ACTIVE") return `${base} bg-primary-50 text-primary-700 border-primary-200`
+  if (status === "BANNED") return `${base} bg-gray-100 text-gray-700 border-gray-200`
+  return `${base} bg-gray-100 text-gray-700 border-gray-200`
+}
+
 export default async function AdminUsersPage() {
   const currentUser = await requireAdmin()
   const supabase = await createClient()
@@ -142,17 +150,21 @@ export default async function AdminUsersPage() {
     revalidatePath("/admin/users")
   }
 
+  const totalActive = activeUsers.length
+  const totalPending = pendingUsers.length
+  const totalBanned = bannedUsers.length
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 space-y-6">
       {/* Hero */}
       <div className="rounded-3xl border border-gray-200 bg-white shadow-soft">
         <div className="p-6 sm:p-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900">
               User Management
             </h1>
             <p className="mt-2 text-sm text-gray-600">
-              Approve new users, manage roles, and enforce bans.
+              Approve new users, manage roles, grant funds, and enforce bans.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -168,21 +180,21 @@ export default async function AdminUsersPage() {
             </div>
           </div>
 
-          <a
-            href="/admin"
-            className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-primary-50 hover:text-primary-700"
-          >
-            ← Back to Admin
-          </a>
+          <div className="shrink-0 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+              Total {userList.length}
+            </span>
+            <span className={roleBadge(currentUser as any)}>
+              {roleLabel(currentUser as any)}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Total Users
-          </div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Users</div>
           <div className="mt-2 flex items-baseline gap-2">
             <div className="text-3xl font-semibold text-gray-900">{userList.length}</div>
             <div className="text-sm font-semibold text-gray-500">profiles</div>
@@ -190,31 +202,25 @@ export default async function AdminUsersPage() {
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Pending Approval
-          </div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Pending</div>
           <div className="mt-2 flex items-baseline gap-2">
-            <div className="text-3xl font-semibold text-amber-700">{pendingUsers.length}</div>
+            <div className="text-3xl font-semibold text-amber-700">{totalPending}</div>
             <div className="text-sm font-semibold text-gray-500">waiting</div>
           </div>
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Active
-          </div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Active</div>
           <div className="mt-2 flex items-baseline gap-2">
-            <div className="text-3xl font-semibold text-primary-700">{activeUsers.length}</div>
+            <div className="text-3xl font-semibold text-primary-700">{totalActive}</div>
             <div className="text-sm font-semibold text-gray-500">enabled</div>
           </div>
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Banned
-          </div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Banned</div>
           <div className="mt-2 flex items-baseline gap-2">
-            <div className="text-3xl font-semibold text-gray-900">{bannedUsers.length}</div>
+            <div className="text-3xl font-semibold text-gray-900">{totalBanned}</div>
             <div className="text-sm font-semibold text-gray-500">blocked</div>
           </div>
         </div>
@@ -227,9 +233,7 @@ export default async function AdminUsersPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-gray-900">Pending Approval</h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Review new signups and approve or reject.
-                </p>
+                <p className="mt-1 text-sm text-gray-600">Review new signups and approve or reject.</p>
               </div>
               <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                 {pendingUsers.length}
@@ -244,14 +248,14 @@ export default async function AdminUsersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="text-sm font-semibold text-gray-900">{user.username}</div>
-                      <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                        PENDING
-                      </span>
+                      <span className={statusBadge("PENDING")}>pending</span>
                     </div>
+
                     <div className="mt-1 text-sm text-gray-600">
                       {user.first_name} {user.last_name}
                     </div>
-                    <div className="mt-2 text-xs text-gray-500">
+
+                    <div className="mt-2 text-xs font-semibold text-gray-500">
                       Registered {formatWhen(user.created_at)}
                     </div>
                   </div>
@@ -261,7 +265,7 @@ export default async function AdminUsersPage() {
                       <input type="hidden" name="user_id" value={user.id} />
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700"
+                        className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-200"
                       >
                         Approve
                       </button>
@@ -272,7 +276,7 @@ export default async function AdminUsersPage() {
                       <input type="hidden" name="reason" value="Rejected during approval" />
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
                       >
                         Reject
                       </button>
@@ -324,15 +328,23 @@ export default async function AdminUsersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="shrink-0 flex flex-col gap-3">
+                  <div className="shrink-0 w-full lg:w-auto flex flex-col gap-3">
                     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
                       <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
                         Wallet
                       </div>
-                      <AdminGrantFundsForm userId={user.id} username={user.username} />
+
+                      {/* Make the embedded form match the vibe */}
+                      <div className="rounded-2xl bg-white border border-gray-200 p-3">
+                        <AdminGrantFundsForm userId={user.id} username={user.username} />
+                      </div>
+
+                      <p className="mt-2 text-xs text-gray-500">
+                        Funds are applied instantly and recorded in the audit log.
+                      </p>
                     </div>
 
-                    {user.id !== currentUser.id && (
+                    {user.id !== currentUser.id ? (
                       <div className="flex flex-wrap gap-2">
                         <form action={setUserStatus}>
                           <input type="hidden" name="user_id" value={user.id} />
@@ -340,7 +352,7 @@ export default async function AdminUsersPage() {
                           <input type="hidden" name="reason" value="Banned by admin" />
                           <button
                             type="submit"
-                            className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
                           >
                             Ban
                           </button>
@@ -355,7 +367,7 @@ export default async function AdminUsersPage() {
                                 type="submit"
                                 name="is_admin"
                                 value="true"
-                                className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700"
+                                className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-200"
                               >
                                 Make Admin
                               </button>
@@ -364,7 +376,7 @@ export default async function AdminUsersPage() {
                                 type="submit"
                                 name="is_admin"
                                 value="false"
-                                className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                                className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
                               >
                                 Remove Admin
                               </button>
@@ -372,9 +384,7 @@ export default async function AdminUsersPage() {
                           </form>
                         )}
                       </div>
-                    )}
-
-                    {user.id === currentUser.id && (
+                    ) : (
                       <div className="text-xs font-semibold text-gray-500">
                         You cannot modify your own status.
                       </div>
@@ -407,7 +417,10 @@ export default async function AdminUsersPage() {
               <div key={user.id} className="px-5 py-4 sm:px-6 hover:bg-primary-50/40 transition">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-gray-900">{user.username}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-sm font-semibold text-gray-900">{user.username}</div>
+                      <span className={statusBadge("BANNED")}>banned</span>
+                    </div>
                     <div className="mt-1 text-sm text-gray-600">
                       {user.first_name} {user.last_name}
                     </div>
@@ -420,7 +433,7 @@ export default async function AdminUsersPage() {
                       <input type="hidden" name="reason" value="Unbanned by admin" />
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700"
+                        className="inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-200"
                       >
                         Unban
                       </button>

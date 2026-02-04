@@ -1,6 +1,5 @@
 import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
-import Link from "next/link"
 import type { Database } from "@/lib/database.types"
 
 type AdminAction = Database["public"]["Tables"]["admin_actions"]["Row"] & {
@@ -77,13 +76,6 @@ export default async function AuditLogPage() {
               </span>
             </div>
           </div>
-
-          <Link
-            href="/admin"
-            className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-primary-50 hover:text-primary-700"
-          >
-            ← Back to Dashboard
-          </Link>
         </div>
       </div>
 

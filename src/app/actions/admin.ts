@@ -20,3 +20,54 @@ export async function grantFundsAction(userId: string, amount: number, reason: s
   revalidatePath('/admin/users')
   return { success: true }
 }
+
+export async function setBetHiddenAction(betId: string, hidden: boolean) {
+  const supabase = await createClient()
+  
+  // @ts-ignore - manual type override
+  const { error } = await supabase.rpc('fn_admin_set_bet_hidden', {
+    p_bet_id: betId,
+    p_hidden: hidden
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/admin/moderate')
+  return { success: true }
+}
+
+export async function resolveBetAction(betId: string, outcome: boolean) {
+  const supabase = await createClient()
+  
+  // @ts-ignore - manual type override
+  const { data, error } = await supabase.rpc('fn_admin_resolve_bet', {
+    p_bet_id: betId,
+    p_outcome: outcome,
+    p_fee_bps: 0 // Default 0 for now as per plan
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/admin/moderate')
+  return { success: true, result: data }
+}
+
+export async function voidBetAction(betId: string) {
+  const supabase = await createClient()
+  
+  // @ts-ignore - manual type override
+  const { data, error } = await supabase.rpc('fn_admin_void_bet', {
+    p_bet_id: betId
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/admin/moderate')
+  return { success: true, result: data }
+}
