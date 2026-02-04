@@ -58,16 +58,32 @@ export default async function ResolveBetPage({ params }: Props) {
     const feeBps = parseInt(formData.get('fee_bps') as string) || 0
     
     // @ts-expect-error - Supabase RPC typing issue
-    const { data } = await supabase.rpc('resolve_bet', {
+    const { data, error } = await supabase.rpc('resolve_bet', {
       p_bet_id: betId,
       p_resolution: resolution === 'true',
       p_fee_bps: feeBps,
     })
     
-    const result = data as unknown as { success: boolean }
-    if (result && result.success) {
-      revalidatePath('/admin')
-      redirect('/admin')
+    if (error) {
+      throw new Error(`Failed to resolve bet: ${error.message}`)
+    }
+    
+    const result = data as unknown as { success: boolean; error?: string; voided?: boolean; already_settled?: boolean }
+    
+    if (!result || !result.success) {
+      throw new Error(result?.error || 'Failed to resolve bet')
+    }
+    
+    // Success - revalidate and redirect
+    revalidatePath('/admin')
+    revalidatePath(`/bets/${betId}`)
+    
+    if (result.voided) {
+      redirect('/admin?message=Bet auto-voided (no winners) and stakes refunded')
+    } else if (result.already_settled) {
+      redirect('/admin?message=Bet was already settled')
+    } else {
+      redirect('/admin?message=Bet resolved successfully')
     }
   }
 
@@ -80,12 +96,26 @@ export default async function ResolveBetPage({ params }: Props) {
     const betId = formData.get('bet_id') as string
     
     // @ts-expect-error - Supabase RPC typing issue
-    const { data } = await supabase.rpc('void_bet', { p_bet_id: betId })
+    const { data, error } = await supabase.rpc('void_bet', { p_bet_id: betId })
     
-    const result = data as unknown as { success: boolean }
-    if (result && result.success) {
-      revalidatePath('/admin')
-      redirect('/admin')
+    if (error) {
+      throw new Error(`Failed to void bet: ${error.message}`)
+    }
+    
+    const result = data as unknown as { success: boolean; error?: string; already_voided?: boolean }
+    
+    if (!result || !result.success) {
+      throw new Error(result?.error || 'Failed to void bet')
+    }
+    
+    // Success - revalidate and redirect
+    revalidatePath('/admin')
+    revalidatePath(`/bets/${betId}`)
+    
+    if (result.already_voided) {
+      redirect('/admin?message=Bet was already voided')
+    } else {
+      redirect('/admin?message=Bet voided and stakes refunded')
     }
   }
 

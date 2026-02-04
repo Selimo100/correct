@@ -260,11 +260,30 @@ Sign up with email: `selina@mogicato.ch` to automatically become the super admin
 - Proportional payout to winners
 - If no winners, auto-void and refund
 
+**Idempotency Guarantee**: Each bet can only be settled once. The `bet_settlements` table enforces a unique constraint on `bet_id`, preventing duplicate payouts even if an admin clicks "Resolve" multiple times or concurrent requests occur.
+
+**Payout Calculation**: Uses precise integer math to ensure the sum of all payouts plus fees equals the total pot exactly:
+
+```
+For each winner:
+  base_payout = (stake * payout_pot) / winners_total
+  
+Remainder distribution:
+  remainder = payout_pot - (sum of all base_payouts)
+  highest_stake_holder.payout += remainder
+```
+
+**Edge Cases**:
+- **No stakes (totalPot = 0)**: Bet is marked RESOLVED with no payouts
+- **No winners (winnersTotal = 0)**: Bet is automatically VOIDED and all stakes are refunded
+- **Concurrent resolution attempts**: Only the first succeeds; subsequent attempts return "already settled"
+
 ### Voiding Bets
 
 - Admin only
 - Refunds all stakes
 - Records all refunds in ledger
+- **Idempotency**: Like resolution, voiding is idempotent and cannot be done twice
 
 ---
 
