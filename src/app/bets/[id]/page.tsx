@@ -143,35 +143,42 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
   const forPercentage = totalPot > 0 ? Math.round((forStake / totalPot) * 100) : 50
   const againstPercentage = totalPot > 0 ? Math.round((againstStake / totalPot) * 100) : 50
 
-  // Fetch comments (RLS safe now)
-  const { data: rawComments } = await supabase
-    .from('comments')
-    .select('*, profiles(username, first_name, last_name)')
-    .eq('bet_id', id)
-    .eq('is_hidden', false)
-    .order('created_at', { ascending: true })
+  // Fetch comments via Secure RPC
+  // @ts-expect-error - RPC types not auto-generated yet
+  const { data: rawComments } = await supabase.rpc('fn_get_comments', { p_bet_id: id })
 
   // Transform comments into nested structure
   const comments: CommentType[] = []
   const replyMap = new Map<string, any[]>()
 
   // 1. Collect replies by parent_id
-  rawComments?.forEach((c: any) => {
-    if (c.parent_id) {
-       if (!replyMap.has(c.parent_id)) replyMap.set(c.parent_id, [])
-       replyMap.get(c.parent_id)!.push(c)
+  ;(rawComments as any[])?.forEach((c: any) => {
+    // Map RPC flat response to UI structure
+    const mappedComment = {
+      id: c.id,
+      content: c.content,
+      created_at: c.created_at,
+      parent_id: c.parent_id,
+      user_id: c.user_id,
+      profiles: {
+        username: c.username,
+        first_name: c.first_name,
+        last_name: c.last_name
+      }
+    }
+
+    if (mappedComment.parent_id) {
+       if (!replyMap.has(mappedComment.parent_id)) replyMap.set(mappedComment.parent_id, [])
+       replyMap.get(mappedComment.parent_id)!.push(mappedComment)
+    } else {
+       // Temporarily store roots to be enriched later
+       comments.push(mappedComment as any)
     }
   })
 
-  // 2. Build root list
-  rawComments?.forEach((c: any) => {
-    if (!c.parent_id) {
-       const commentWithReplies = { 
-         ...c, 
-         replies: replyMap.get(c.id) || [] 
-       }
-       comments.push(commentWithReplies)
-    }
+  // 2. Attach replies to roots
+  comments.forEach(c => {
+    c.replies = replyMap.get(c.id) || []
   })
 
   // Sort comments: Newest last (chronological) usually for forums, or Newest first?

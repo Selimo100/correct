@@ -38,12 +38,35 @@ export const friends = {
     // Incoming
     const { data, error } = await supabase
       .from('friend_requests')
-      .select('created_at, status, id, profiles!friend_requests_from_user_id_fkey(username, first_name, last_name)')
+      .select('created_at, status, id, profiles!friend_requests_from_user_id_fkey(username, first_name, last_name, avatar_url:id)')
       .eq('status', 'PENDING')
       .neq('from_user_id', (await supabase.auth.getUser()).data.user?.id) // Incoming only
     
     if (error) throw error
     return data
+  },
+  getOutgoingRequests: async () => {
+    const supabase = createClient()
+    const user = (await supabase.auth.getUser()).data.user
+    if (!user) return []
+    
+    // Outgoing
+    const { data, error } = await supabase
+      .from('friend_requests')
+      .select('created_at, status, id, profiles!friend_requests_to_user_id_fkey(username, first_name, last_name, avatar_url:id)')
+      .eq('status', 'PENDING')
+      .eq('from_user_id', user.id)
+    
+    if (error) throw error
+    return data
+  },
+  cancelRequest: async (requestId: string) => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('friend_requests')
+      .update({ status: 'CANCELED' })
+      .eq('id', requestId)
+    if (error) throw error
   }
 }
 

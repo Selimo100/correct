@@ -194,6 +194,45 @@ export interface Database {
         }
         Relationships: []
       }
+      bet_settlements: {
+        Row: {
+          id: string
+          bet_id: string
+          outcome: boolean | null
+          total_pot: number
+          winners_total: number
+          fee_amount: number
+          payout_count: number
+          settled_by_id: string
+          settled_at: string
+          metadata: Json | null
+        }
+        Insert: {
+          id?: string
+          bet_id: string
+          outcome?: boolean | null
+          total_pot?: number
+          winners_total?: number
+          fee_amount?: number
+          payout_count?: number
+          settled_by_id: string
+          settled_at?: string
+          metadata?: Json | null
+        }
+        Update: {
+          id?: string
+          bet_id?: string
+          outcome?: boolean | null
+          total_pot?: number
+          winners_total?: number
+          fee_amount?: number
+          payout_count?: number
+          settled_by_id?: string
+          settled_at?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
       friend_requests: {
         Row: {
           id: string

@@ -4,22 +4,56 @@ import { useEffect, useState } from "react"
 import { friends } from "@/lib/friends"
 import UserSearch from "./UserSearch"
 
+type FriendUser = {
+  id: string
+  username: string | null
+  first_name: string | null
+  last_name: string | null
+}
+
+type FriendRequestProfile = {
+  username: string | null
+  first_name: string | null
+  last_name: string | null
+}
+
+type IncomingRequest = {
+  id: string
+  created_at: string
+  status: string
+  profiles: FriendRequestProfile
+}
+
+type OutgoingRequest = {
+  id: string
+  created_at: string
+  status: string
+  profiles: FriendRequestProfile | null // Note: Relation might be null if user deleted? Unlikely but safe.
+}
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ")
 }
 
 export default function FriendsList() {
-  const [activeTab, setActiveTab] = useState<"FRIENDS" | "REQUESTS">("FRIENDS")
-  const [friendList, setFriendList] = useState<any[]>([])
-  const [requests, setRequests] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<"FRIENDS" | "REQUESTS" | "PENDING">("FRIENDS")
+  const [friendList, setFriendList] = useState<FriendUser[]>([])
+  const [incomingRequests, setIncomingRequests] = useState<IncomingRequest[]>([])
+  const [outgoingRequests, setOutgoingRequests] = useState<OutgoingRequest[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [f, r] = await Promise.all([friends.getFriends(), friends.getRequests()])
-      setFriendList(f || [])
-      setRequests(r || [])
+      const [f, incoming, outgoing] = await Promise.all([
+        friends.getFriends(),
+        friends.getRequests(),
+        friends.getOutgoingRequests()
+      ])
+      // Cast the results since supabase types might be loose passing through the lib layer
+      setFriendList((f as any[]) || [])
+      setIncomingRequests((incoming as any[]) || [])
+      setOutgoingRequests((outgoing as any[]) || [])
     } catch (e) {
       console.error(e)
     } finally {
@@ -34,7 +68,18 @@ export default function FriendsList() {
   const handleRespond = async (id: string, accept: boolean) => {
     try {
       await friends.respondToRequest(id, accept)
-      loadData()
+      // Optimistic updatish - just reload for safety or filter
+      setIncomingRequests(prev => prev.filter(r => r.id !== id))
+      if (accept) loadData() // Reload to update friends list
+    } catch (e: any) {
+      alert(e.message)
+    }
+  }
+
+  const handleCancel = async (id: string) => {
+    try {
+      await friends.cancelRequest(id)
+      setOutgoingRequests(prev => prev.filter(r => r.id !== id))
     } catch (e: any) {
       alert(e.message)
     }
@@ -42,7 +87,8 @@ export default function FriendsList() {
 
   const tabs = [
     { key: "FRIENDS" as const, label: "Friends", count: friendList.length },
-    { key: "REQUESTS" as const, label: "Requests", count: requests.length },
+    { key: "REQUESTS" as const, label: "Requests", count: incomingRequests.length },
+    { key: "PENDING" as const, label: "Pending", count: outgoingRequests.length },
   ]
 
   return (
@@ -145,7 +191,7 @@ export default function FriendsList() {
                       <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
                         <p className="text-sm font-semibold text-gray-900">No friends yet.</p>
                         <p className="mt-1 text-sm text-gray-600">
-                          Search for a username to get started.
+                          Search for a username to get started. Add friends to share private bets.
                         </p>
                       </div>
                     ) : (
@@ -184,14 +230,13 @@ export default function FriendsList() {
 
                 {activeTab === "REQUESTS" && (
                   <>
-                    {requests.length === 0 ? (
+                    {incomingRequests.length === 0 ? (
                       <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
-                        <p className="text-sm font-semibold text-gray-900">No pending requests.</p>
-                        <p className="mt-1 text-sm text-gray-600">You are all caught up.</p>
+                        <p className="text-sm font-semibold text-gray-900">No incoming requests.</p>
                       </div>
                     ) : (
                       <div className="grid gap-3">
-                        {requests.map((req) => (
+                        {incomingRequests.map((req) => (
                           <div
                             key={req.id}
                             className="rounded-3xl border border-gray-200 bg-white p-4 sm:p-5 transition hover:border-primary-200 hover:shadow-md"
@@ -209,8 +254,7 @@ export default function FriendsList() {
                                     @{req.profiles.username}
                                   </div>
                                   <div className="text-sm text-gray-600">
-                                    Sent on{" "}
-                                    {new Date(req.created_at).toLocaleDateString()}
+                                    Sent you a friend request
                                   </div>
                                 </div>
                               </div>
@@ -231,6 +275,58 @@ export default function FriendsList() {
                                   Decline
                                 </button>
                               </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {activeTab === "PENDING" && (
+                  <>
+                    {outgoingRequests.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center">
+                        <p className="text-sm font-semibold text-gray-900">No pending requests.</p>
+                        <p className="mt-1 text-sm text-gray-600">
+                          Requests you send will appear here.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3">
+                         {outgoingRequests.map((req) => (
+                          <div
+                            key={req.id}
+                            className="rounded-3xl border border-gray-200 bg-white/60 p-4 sm:p-5 transition hover:border-gray-300"
+                          >
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gray-50 text-gray-400 font-bold">
+                                  {String(req?.profiles?.username || "?")
+                                    .charAt(0)
+                                    .toUpperCase()}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold text-gray-900">
+                                    @{req.profiles.username}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                                    Waiting for response
+                                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                      Pending
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCancel(req.id)}
+                                className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                              >
+                                Cancel request
+                              </button>
                             </div>
                           </div>
                         ))}
