@@ -74,10 +74,8 @@ export const friends = {
 export const groups = {
   list: async () => {
     const supabase = createClient()
-    const { data, error } = await supabase
-      .from('groups')
-      .select('*, group_members(count)')
-      .order('created_at', { ascending: false })
+    // Use RPC for consistent member counts and efficient query
+    const { data, error } = await supabase.rpc('fn_list_my_groups')
     if (error) throw error
     return data
   },
@@ -97,7 +95,7 @@ export const groups = {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('group_members')
-      .select('user_id, role, created_at, profiles(username, first_name, last_name, avatar_url)')
+      .select('user_id, role, added_at, profiles(username, first_name, last_name, avatar_url)')
       .eq('group_id', groupId)
     
     if (error) throw error
@@ -105,7 +103,7 @@ export const groups = {
       ...m.profiles,
       id: m.user_id,
       role: m.role,
-      joined_at: m.created_at
+      joined_at: m.added_at
     }))
   }
 }

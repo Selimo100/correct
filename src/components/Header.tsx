@@ -1,29 +1,31 @@
-import Link from "next/link"
-import { getCurrentUser } from "@/lib/auth"
-import { createClient } from "@/lib/supabase/server"
-import HeaderTabs from "./HeaderTabs"
-import NotificationBell from "./NotificationBell"
-import { getUnreadCount } from "@/app/actions/notifications"
+// Header.tsx (Server Component)
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import HeaderTabs from "./HeaderTabs";
+import NotificationBell from "./NotificationBell";
+import { getUnreadCount } from "@/app/actions/notifications";
 
 export default async function Header() {
-  const user = await getCurrentUser()
-  const supabase = await createClient()
+  const user = await getCurrentUser();
+  const supabase = await createClient();
 
-  let balance = 0
-  let unreadCount = 0
+  let balance = 0;
+  let unreadCount = 0;
 
   if (user) {
     // @ts-expect-error
-    const { data } = await supabase.rpc("get_balance", { p_user_id: user.id })
-    balance = (data as unknown as number) || 0
-    unreadCount = await getUnreadCount()
+    const { data } = await supabase.rpc("get_balance", { p_user_id: user.id });
+    balance = (data as unknown as number) || 0;
+    unreadCount = await getUnreadCount();
   }
 
-  // Fetch friend requests count if logged in
-  let friendRequestCount = 0
+  let friendRequestCount = 0;
   if (user) {
-    const { data } = await (supabase.rpc as any)("fn_incoming_friend_request_count")
-    friendRequestCount = (data as number) || 0
+    const { data } = await (supabase.rpc as any)(
+      "fn_incoming_friend_request_count",
+    );
+    friendRequestCount = (data as number) || 0;
   }
 
   return (
@@ -32,30 +34,33 @@ export default async function Header() {
         <div className="flex h-16 items-center gap-3">
           {/* Left: Logo */}
           <Link href="/" className="flex shrink-0 items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-700 text-white font-extrabold shadow-sm">
-              C?
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white border border-gray-200 shadow-sm">
+              <img src="/icon.png" alt="Correct? logo" className="h-7 w-7" />
             </span>
-            <div className="leading-tight">
+
+            <div className="leading-tight hidden sm:block">
               <div className="text-lg font-semibold tracking-tight text-gray-900">
                 Correct?
               </div>
             </div>
           </Link>
 
-          {/* Center: Tabs (important: min-w-0 + flex-1) */}
-          <div className="min-w-0 flex-1 flex justify-center">
-            <HeaderTabs isLoggedIn={!!user} isAdmin={!!user?.is_admin} friendRequestCount={friendRequestCount} />
+          {/* Center: Tabs */}
+          <div className="min-w-0 flex-1 flex justify-start md:justify-center">
+            <HeaderTabs
+              isLoggedIn={!!user}
+              isAdmin={!!user?.is_admin}
+              friendRequestCount={friendRequestCount}
+            />
           </div>
 
           {/* Right: Actions */}
-
           <div className="shrink-0 flex items-center gap-2">
             {user ? (
               <>
                 <div className="mr-1">
                   <NotificationBell initialCount={unreadCount} />
                 </div>
-                {/* Compact on md, full box on lg */}
 
                 <div className="hidden lg:flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-2 shadow-sm">
                   <div className="min-w-0">
@@ -86,7 +91,6 @@ export default async function Header() {
                   </form>
                 </div>
 
-                {/* Small quick badge on md */}
                 <div className="lg:hidden inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700">
                   {balance} Neos
                 </div>
@@ -111,5 +115,5 @@ export default async function Header() {
         </div>
       </nav>
     </header>
-  )
+  );
 }

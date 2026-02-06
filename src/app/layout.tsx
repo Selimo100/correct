@@ -9,6 +9,13 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Correct?',
   description: 'Place bets on statements using internal currency (Neos). Built by Luana & Selina.',
+
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
+
+  manifest: "/manifest.webmanifest",
 }
 
 export default function RootLayout({

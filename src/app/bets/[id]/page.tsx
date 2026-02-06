@@ -10,13 +10,13 @@ import Link from 'next/link'
 import { formatToZurich } from '@/lib/date'
 import type { Database } from '@/lib/database.types'
 
-type Bet = Database['public']['Tables']['bets']['Row'] & { 
+type Bet = Omit<Database['public']['Tables']['bets']['Row'], 'category'> & { 
+  category?: string | { name: string, icon?: string } | null,
   visibility: 'PUBLIC' | 'PRIVATE', 
   hide_participants: boolean,
   has_access: boolean,
   invite_code_enabled: boolean,
   participants?: any[],
-  category?: { name: string, icon?: string } // Added
 }
 
 
