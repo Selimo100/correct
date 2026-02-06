@@ -5,6 +5,8 @@ import StakeForm from '@/components/StakeForm'
 import CommentSection, { CommentType } from '@/components/CommentSection'
 import PrivateBetGate from '@/components/PrivateBetGate'
 import InviteCodePanel from '@/components/InviteCodePanel'
+import CategoryChip from '@/components/CategoryChip' // Import
+import Link from 'next/link'
 import { formatToZurich } from '@/lib/date'
 import type { Database } from '@/lib/database.types'
 
@@ -13,8 +15,10 @@ type Bet = Database['public']['Tables']['bets']['Row'] & {
   hide_participants: boolean,
   has_access: boolean,
   invite_code_enabled: boolean,
-  participants?: any[]
+  participants?: any[],
+  category?: { name: string, icon?: string } // Added
 }
+
 
 type BetStats = {
   total_pot: number
@@ -105,12 +109,13 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
   }
   
   // Extract Stats directly from RPC response
-  // The RPC returns aggregates in the root object
+  // The RPC returns stats in a nested object 'stats'
+  const statsObj = (bet as any).stats || {}
   const statsData: BetStats = {
-     total_pot: (bet as any).pot_total || 0,
-     for_stake: (bet as any).amount_yes || 0,
-     against_stake: (bet as any).amount_no || 0,
-     participant_count: (bet as any).participants_total || 0
+     total_pot: statsObj.total_pot || 0,
+     for_stake: statsObj.for_stake || 0,
+     against_stake: statsObj.against_stake || 0,
+     participant_count: statsObj.participants_total || 0
   }
   
   // Find my entry from the participants array returned by RPC
@@ -249,17 +254,22 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
             )}
           </div>
           {betData.category && (
-            <span className="px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-700">
-              {betData.category}
-            </span>
+            <CategoryChip category={typeof betData.category === 'object' ? betData.category.name : betData.category} />
           )}
         </div>
 
         {/* Title and Creator */}
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{betData.title}</h1>
         <p className="text-gray-500 mb-4">
-          Created by {creator?.username || 'Unknown'} on{' '}
-          {formatToZurich(betData.created_at, 'dd.MM.yyyy')}
+          Created by{' '}
+          {creator?.username ? (
+            <Link href={`/u/${creator.username}`} className="font-medium text-gray-900 hover:text-primary-600 hover:underline">
+              {creator.username}
+            </Link>
+          ) : (
+            'Unknown'
+          )}{' '}
+          on {formatToZurich(betData.created_at, 'dd.MM.yyyy')}
         </p>
 
         {/* Description */}
@@ -366,10 +376,10 @@ export default async function BetDetailPage({ params, searchParams }: Props) {
                        {p.user_id === user?.id && <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 rounded">You</span>}
                     </div>
                     <div className="flex items-center space-x-4 text-sm">
-                       <span className={p.vote === 'FOR' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                         {p.vote === 'FOR' ? 'FOR' : 'AGAINST'}
+                       <span className={p.side === 'FOR' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                         {p.side === 'FOR' ? 'FOR' : 'AGAINST'}
                        </span>
-                       <span className="text-gray-500">{p.amount} Neos</span>
+                       <span className="text-gray-500">{p.stake} Neos</span>
                     </div>
                   </div>
                 ))

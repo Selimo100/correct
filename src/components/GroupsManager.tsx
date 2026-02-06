@@ -21,6 +21,20 @@ export default function GroupsManager() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
   const [addingMember, setAddingMember] = useState(false)
+  const [members, setMembers] = useState<any[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+
+  useEffect(() => {
+    if (selectedGroup) {
+      setLoadingMembers(true)
+      groups.getMembers(selectedGroup)
+        .then(setMembers)
+        .catch(console.error)
+        .finally(() => setLoadingMembers(false))
+    } else {
+      setMembers([])
+    }
+  }, [selectedGroup])
 
   const loadData = async () => {
     setLoading(true)
@@ -208,6 +222,35 @@ export default function GroupsManager() {
 
                       {isOpen && (
                         <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 animate-in fade-in slide-in-from-top-2">
+                          
+                          {/* Members List */}
+                          <div className="mb-6">
+                            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                              Current Members ({members.length})
+                            </h4>
+                            <div className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100 max-h-52 overflow-y-auto">
+                               {loadingMembers ? (
+                                 <div className="p-4 text-sm text-gray-500">Loading members...</div>
+                               ) : members.length === 0 ? (
+                                 <div className="p-4 text-sm text-gray-500">No members found.</div>
+                               ) : (
+                                 members.map((m) => (
+                                   <div key={m.id} className="flex items-center justify-between px-4 py-3">
+                                      <div className="flex items-center gap-3">
+                                         <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 overflow-hidden shrink-0">
+                                            {m.avatar_url ? <img src={m.avatar_url} alt={m.username} className="w-full h-full object-cover" /> : m.username?.[0]?.toUpperCase()}
+                                         </div>
+                                         <div className="min-w-0">
+                                            <div className="text-sm font-semibold text-gray-900 truncate">@{m.username}</div>
+                                            <div className="text-xs text-gray-500 capitalize">{m.role?.toLowerCase() || 'member'}</div>
+                                         </div>
+                                      </div>
+                                   </div>
+                                 ))
+                               )}
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-between gap-3">
                             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                               Add Friend to Group

@@ -92,5 +92,20 @@ export const groups = {
     const { data, error } = await (supabase.rpc as any)('fn_add_group_member', { p_group_id: groupId, p_username: username })
     if (error) throw error
     return data
+  },
+  getMembers: async (groupId: string) => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('group_members')
+      .select('user_id, role, created_at, profiles(username, first_name, last_name, avatar_url)')
+      .eq('group_id', groupId)
+    
+    if (error) throw error
+    return data.map((m: any) => ({
+      ...m.profiles,
+      id: m.user_id,
+      role: m.role,
+      joined_at: m.created_at
+    }))
   }
 }

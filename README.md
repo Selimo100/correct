@@ -41,6 +41,17 @@ Built by **Luana & Selina** 🚀
 - **User Management**: Promote/demote admins (super-admin only)
 - **Audit Log**: Complete history of administrative actions
 
+### Notifications
+
+- **Real-time**: Unread badge on Bell icon
+- **Events**:
+  - Bet resolved/voided (with results)
+  - Wallet payouts/refunds
+  - Friend requests (incoming/accepted)
+  - Group invites
+- **Privacy**: RLS ensures users only see their own notifications.
+- **Data Retention**: Deduplication keys prevent spam (e.g. one notification per bet resolution).
+
 ---
 
 ## 🛠 Tech Stack
@@ -267,13 +278,14 @@ Sign up with email: `selina@mogicato.ch` to automatically become the super admin
 ```
 For each winner:
   base_payout = (stake * payout_pot) / winners_total
-  
+
 Remainder distribution:
   remainder = payout_pot - (sum of all base_payouts)
   highest_stake_holder.payout += remainder
 ```
 
 **Edge Cases**:
+
 - **No stakes (totalPot = 0)**: Bet is marked RESOLVED with no payouts
 - **No winners (winnersTotal = 0)**: Bet is automatically VOIDED and all stakes are refunded
 - **Concurrent resolution attempts**: Only the first succeeds; subsequent attempts return "already settled"

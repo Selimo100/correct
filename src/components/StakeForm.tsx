@@ -115,12 +115,16 @@ export default function StakeForm({
         </label>
         <div className="relative">
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             id="amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            min="1"
-            max={userBalance}
+            onChange={(e) => {
+              // Only allow positive integers
+              const val = e.target.value.replace(/[^0-9]/g, '')
+              setAmount(val)
+            }}
             className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
             placeholder="Enter amount"
             disabled={loading}

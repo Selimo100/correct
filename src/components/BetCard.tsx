@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Database } from "@/lib/database.types";
 import { formatToZurich } from "@/lib/date";
+import CategoryChip from "./CategoryChip";
 
 type Bet = Database["public"]["Tables"]["bets"]["Row"] & {
   profiles?: {
@@ -12,7 +13,10 @@ type Bet = Database["public"]["Tables"]["bets"]["Row"] & {
     for_stake: number;
     against_stake: number;
   };
-  group?: { id: string; name: string }; // optional convenience
+  group?: { id: string; name: string };
+  comment_count?: number; // Added from search v2
+  category_name?: string; // from RPC
+  category?: string;
 };
 
 interface BetCardProps {
@@ -32,6 +36,15 @@ export default function BetCard({ bet, showCreator = true }: BetCardProps) {
   const forStake = bet.stats?.for_stake || 0;
   const againstStake = bet.stats?.against_stake || 0;
   const participantCount = bet.stats?.participant_count || 0;
+
+  const getCategoryName = () => {
+     if (bet.category_name) return bet.category_name;
+     if (!bet.category) return null;
+     if (typeof bet.category === 'string') return bet.category;
+     return (bet.category as any).name;
+  };
+  
+  const categoryLabel = getCategoryName();
 
   const forPercentage =
     totalPot > 0 ? Math.round((forStake / totalPot) * 100) : 50;
@@ -145,6 +158,7 @@ export default function BetCard({ bet, showCreator = true }: BetCardProps) {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge />
               <ScopeBadges />
+              {categoryLabel && <CategoryChip category={categoryLabel} />}
             </div>
 
             {showCreator && bet.profiles?.username && (
@@ -231,11 +245,14 @@ export default function BetCard({ bet, showCreator = true }: BetCardProps) {
               </div>
             </div>
 
-            {bet.category && (
-              <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
-                {bet.category}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {bet.comment_count !== undefined && bet.comment_count > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 text-xs text-gray-500">
+                  <span>💬</span>
+                  {bet.comment_count}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

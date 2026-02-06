@@ -2,16 +2,28 @@ import Link from "next/link"
 import { getCurrentUser } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import HeaderTabs from "./HeaderTabs"
+import NotificationBell from "./NotificationBell"
+import { getUnreadCount } from "@/app/actions/notifications"
 
 export default async function Header() {
   const user = await getCurrentUser()
   const supabase = await createClient()
 
   let balance = 0
+  let unreadCount = 0
+
   if (user) {
     // @ts-expect-error
     const { data } = await supabase.rpc("get_balance", { p_user_id: user.id })
     balance = (data as unknown as number) || 0
+    unreadCount = await getUnreadCount()
+  }
+
+  // Fetch friend requests count if logged in
+  let friendRequestCount = 0
+  if (user) {
+    const { data } = await (supabase.rpc as any)("fn_incoming_friend_request_count")
+    friendRequestCount = (data as number) || 0
   }
 
   return (
@@ -32,14 +44,19 @@ export default async function Header() {
 
           {/* Center: Tabs (important: min-w-0 + flex-1) */}
           <div className="min-w-0 flex-1 flex justify-center">
-            <HeaderTabs isLoggedIn={!!user} isAdmin={!!user?.is_admin} />
+            <HeaderTabs isLoggedIn={!!user} isAdmin={!!user?.is_admin} friendRequestCount={friendRequestCount} />
           </div>
 
           {/* Right: Actions */}
+
           <div className="shrink-0 flex items-center gap-2">
             {user ? (
               <>
+                <div className="mr-1">
+                  <NotificationBell initialCount={unreadCount} />
+                </div>
                 {/* Compact on md, full box on lg */}
+
                 <div className="hidden lg:flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-4 py-2 shadow-sm">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-gray-900">
