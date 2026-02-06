@@ -219,9 +219,6 @@ export interface Database {
           settled_at?: string
           settled_by?: string
         }
-          settled_at?: string
-          metadata?: Json | null
-        }
         Relationships: []
       }
       friend_requests: {
@@ -616,3 +613,5 @@ export interface Database {
       [_ in never]: never
     }
   }
+}
+

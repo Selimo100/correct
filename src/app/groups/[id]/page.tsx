@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { requireAuth } from '@/lib/auth'
+import { Database } from '@/lib/database.types'
+
+type GroupRow = Database['public']['Tables']['groups']['Row']
 
 export default async function GroupDetailPage({ params }: { params: { id: string } }) {
   const user = await requireAuth()
@@ -9,17 +12,19 @@ export default async function GroupDetailPage({ params }: { params: { id: string
   const { id } = params
 
   // Fetch Group (RLS enforced)
-  const { data: group, error } = await supabase
+  const { data: groupData, error } = await supabase
     .from('groups')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (error || !group) {
+  if (error || !groupData) {
     console.error(`[GroupDetail] Error fetching group ${id}:`, error)
-    if (!group) console.error(`[GroupDetail] Group not found (or RLS filtered it). User: ${user.id}`)
+    if (!groupData) console.error(`[GroupDetail] Group not found (or RLS filtered it). User: ${user.id}`)
     notFound()
   }
+  
+  const group = groupData as GroupRow;
 
   // Fetch Members
   // Relation usage based on schema: group_members -> profiles
